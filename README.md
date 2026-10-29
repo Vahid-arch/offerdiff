@@ -69,8 +69,10 @@ MUG-BLUE,Blue Mug,https://example-store.test/products/blue-mug,12.99 USD,,in_sto
 
 ## How matching works
 
-The tool reads all schema.org `Product` / `Offer` data from the page's JSON-LD (including `offers`
-arrays, `AggregateOffer`, `ProductGroup` with `hasVariant`, and `@graph`). It then picks the offer
+The tool reads schema.org `Product` / `Offer` data from the page's JSON-LD in these shapes: a
+`Product` at the top level, inside `@graph` or inside `mainEntity`; `offers` as one object or an
+array; `AggregateOffer`; `ProductGroup` with `hasVariant`; and offers without `"@type": "Offer"`
+when they have a `price`. Other shapes are listed under [Limitations](#limitations). It then picks the offer
 for a feed row in this order:
 
 1. **url**: the offer `url` equals the feed `link` (scheme and host ignore case; path and query must
@@ -104,6 +106,8 @@ The feed price used is `sale_price` when present, else `price`. Prices are compa
 
 - Local fixture pages only: no network access yet. Only URLs on `example-store.test` are accepted.
 - JSON-LD only: no microdata or RDFa.
+- `@type` must be the plain name (`"Product"`); prefixed forms such as `"schema:Product"` or
+  `"https://schema.org/Product"` are not recognized.
 - No JavaScript rendering: structured data added by scripts is not seen.
 - No `priceSpecification`: only `price`, and `lowPrice`/`highPrice` on `AggregateOffer`
   (a price range gives unknown).

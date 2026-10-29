@@ -57,28 +57,30 @@ public static class JsonLdExtractor
     }
 
     // sku and url come from the enclosing Product, so an Offer without its own still gets them.
-    static void Visit(JsonElement node, string? sku, string? url, JsonLdResult result)
+    // inOffers is true inside a Product's "offers", where an object without @type but with a price counts as an Offer.
+    static void Visit(JsonElement node, string? sku, string? url, JsonLdResult result, bool inOffers = false)
     {
         if (node.ValueKind == JsonValueKind.Array)
         {
-            foreach (var item in node.EnumerateArray()) Visit(item, sku, url, result);
+            foreach (var item in node.EnumerateArray()) Visit(item, sku, url, result, inOffers);
             return;
         }
         if (node.ValueKind != JsonValueKind.Object) return;
 
         if (node.TryGetProperty("@graph", out var graph)) Visit(graph, sku, url, result);
+        if (node.TryGetProperty("mainEntity", out var mainEntity)) Visit(mainEntity, sku, url, result);
 
         if (IsType(node, "Product") || IsType(node, "ProductGroup"))
         {
             sku = Text(node, "sku") ?? sku;
             url = Text(node, "url") ?? url;
-            if (node.TryGetProperty("offers", out var offers)) Visit(offers, sku, url, result);
+            if (node.TryGetProperty("offers", out var offers)) Visit(offers, sku, url, result, inOffers: true);
             // variants do not inherit the group's sku/url, or every variant would look like the same product
             if (node.TryGetProperty("hasVariant", out var variants)) Visit(variants, null, null, result);
         }
         else if (IsType(node, "AggregateOffer") && node.TryGetProperty("offers", out var inner))
         {
-            Visit(inner, sku, url, result);
+            Visit(inner, sku, url, result, inOffers: true);
         }
         else if (IsType(node, "AggregateOffer"))
         {
@@ -87,7 +89,7 @@ public static class JsonLdExtractor
             // a price range has no single price to compare, so leave it empty rather than pick one
             AddOffer(node, low == high ? low : null, sku, url, result);
         }
-        else if (IsType(node, "Offer"))
+        else if (IsType(node, "Offer") || (inOffers && !node.TryGetProperty("@type", out _) && node.TryGetProperty("price", out _)))
         {
             AddOffer(node, Number(node, "price"), sku, url, result);
         }

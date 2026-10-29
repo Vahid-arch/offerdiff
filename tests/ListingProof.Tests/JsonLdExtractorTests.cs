@@ -114,6 +114,31 @@ public class JsonLdExtractorTests
     }
 
     [Fact]
+    public void Product_inside_main_entity()
+    {
+        var html = """
+            <script type="application/ld+json">
+            {"@type":"ItemPage","mainEntity":{"@type":"Product","sku":"A","offers":{"@type":"Offer","price":5,"priceCurrency":"USD"}}}
+            </script>
+            """;
+
+        Assert.Equal(new PageOffer("A", 5m, "USD", null, null), Assert.Single(JsonLdExtractor.Extract(html).Offers));
+    }
+
+    [Fact]
+    public void Untyped_offer_with_price_counts_only_inside_offers()
+    {
+        var html = """
+            <script type="application/ld+json">
+            {"@type":"Product","sku":"A","offers":[{"price":"5.00","priceCurrency":"USD"},{"name":"no price"}]}
+            </script>
+            <script type="application/ld+json">{"price":9,"priceCurrency":"USD"}</script>
+            """;
+
+        Assert.Equal(new PageOffer("A", 5.00m, "USD", null, null), Assert.Single(JsonLdExtractor.Extract(html).Offers));
+    }
+
+    [Fact]
     public void Odd_shapes_do_not_throw()
     {
         var html = """

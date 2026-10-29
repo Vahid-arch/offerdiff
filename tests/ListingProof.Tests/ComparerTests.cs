@@ -1,3 +1,4 @@
+using System.Globalization;
 using ListingProof.Core;
 
 namespace ListingProof.Tests;
@@ -105,12 +106,13 @@ public class ComparerTests
     }
 
     [Theory]
-    [InlineData(13.00, Verdict.Match)]    // 0.01 off: within tolerance
-    [InlineData(12.98, Verdict.Match)]
-    [InlineData(13.01, Verdict.Mismatch)] // 0.02 off
-    public void Price_tolerance_is_one_cent(decimal pagePrice, Verdict expected)
+    [InlineData("12.99", Verdict.Match)]
+    [InlineData("12.990", Verdict.Match)] // same amount, different scale
+    [InlineData("13.00", Verdict.Mismatch)] // one cent off is a mismatch
+    [InlineData("12.98", Verdict.Mismatch)]
+    public void Prices_are_compared_exactly(string pagePrice, Verdict expected)
     {
-        Assert.Equal(expected, Compare(Item(price: 12.99m), Offer(price: pagePrice)).Verdict);
+        Assert.Equal(expected, Compare(Item(price: 12.99m), Offer(price: decimal.Parse(pagePrice, CultureInfo.InvariantCulture))).Verdict);
     }
 
     [Fact]

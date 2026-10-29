@@ -9,8 +9,6 @@ public record ComparisonResult(string Id, Verdict Verdict, List<string> Details,
 
 public static class Comparer
 {
-    const decimal PriceTolerance = 0.01m;
-
     // getHtml is FixturePageSource.GetHtml today; an HTTP fetcher with the same shape can replace it.
     public static ComparisonResult Compare(FeedItem item, Func<string, string> getHtml)
     {
@@ -48,7 +46,8 @@ public static class Comparer
         var feedPrice = item.SalePrice ?? item.Price;
         var pagePrice = new Price(offer.Price!.Value, offer.Currency!);
         var details = new List<string>();
-        if (Math.Abs(feedPrice.Amount - pagePrice.Amount) > PriceTolerance)
+        // decimal is exact and 12.99 == 12.990, so no tolerance is needed
+        if (feedPrice.Amount != pagePrice.Amount)
             details.Add($"price: feed {Amount(feedPrice)}, page {Amount(pagePrice)}");
         if (!feedPrice.Currency.Equals(pagePrice.Currency, StringComparison.OrdinalIgnoreCase))
             details.Add($"currency: feed {feedPrice.Currency}, page {pagePrice.Currency}");

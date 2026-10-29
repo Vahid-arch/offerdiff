@@ -17,6 +17,14 @@ public class FixturePageSourceTests
     }
 
     [Theory]
+    [InlineData("https://example-store.test/products/v2..final", "v2..final.html")]
+    [InlineData("https://example-store.test/products/mug?back=../list", "mug.html")]
+    public void Dots_inside_a_segment_or_the_query_are_allowed(string url, string file)
+    {
+        Assert.Equal(Path.Combine(Pages, "products", file), source.ResolvePath(url));
+    }
+
+    [Theory]
     [InlineData("https://evil.test/products/blue-mug")]
     [InlineData("https://example-store.test.evil.test/products/blue-mug")]
     [InlineData("ftp://example-store.test/products/blue-mug")]

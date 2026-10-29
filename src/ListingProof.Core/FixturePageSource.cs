@@ -17,9 +17,10 @@ public class FixturePageSource(string pagesFolder)
         if (!uri.Host.Equals(Host, StringComparison.OrdinalIgnoreCase))
             throw new ArgumentException($"host must be {Host}: {url}");
 
-        // Uri already collapses "/a/../b", so check the raw text too: a URL with ".." is rejected, not silently rewritten.
+        // Uri already collapses "/a/../b", so check the raw path too: a ".." segment is rejected, not silently rewritten.
         var path = Uri.UnescapeDataString(uri.AbsolutePath).Trim('/');
-        if (path == "" || url.Contains("..") || Uri.UnescapeDataString(url).Contains(".."))
+        var rawSegments = Uri.UnescapeDataString(url.Split('?', '#')[0]).Split('/', '\\');
+        if (path == "" || rawSegments.Contains(".."))
             throw new ArgumentException($"bad page path: {url}");
 
         var file = Path.GetFullPath(Path.Combine(root, path + ".html"));

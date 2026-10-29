@@ -96,9 +96,9 @@ The feed price used is `sale_price` when present, else `price`. Prices are compa
 
 | Code | Meaning |
 |---|---|
-| 0 | No mismatches (unknown rows and bad feed rows alone do not fail) |
+| 0 | No mismatches (unknown rows and some bad feed rows alone do not fail) |
 | 1 | At least one mismatch |
-| 2 | Error: no argument, feed file not found, or pages folder not found |
+| 2 | Error: no argument, feed file not found, pages folder not found, or no feed row could be read (for example `;` instead of `,`, missing columns, or an empty feed) |
 
 ## Limitations
 

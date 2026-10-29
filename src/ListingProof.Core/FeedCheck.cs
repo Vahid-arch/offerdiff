@@ -4,8 +4,9 @@ public record CheckReport(List<FeedError> FeedErrors, List<ComparisonResult> Res
 {
     public int Count(Verdict verdict) => Results.Count(r => r.Verdict == verdict);
 
+    // No readable row (wrong delimiter, missing columns, empty feed) means nothing was checked: an error, not a pass.
     // Unknown alone does not fail: it means "could not check", not "wrong".
-    public int ExitCode => Count(Verdict.Mismatch) > 0 ? 1 : 0;
+    public int ExitCode => Results.Count == 0 ? 2 : Count(Verdict.Mismatch) > 0 ? 1 : 0;
 
     public string Summary =>
         $"{Results.Count} rows: {Count(Verdict.Match)} match, {Count(Verdict.Mismatch)} mismatch, {Count(Verdict.Unknown)} unknown" +

@@ -1,0 +1,9 @@
+id,title,link,price,sale_price,availability
+MUG-BLUE,Blue Mug,https://example-store.test/products/blue-mug,12.99 USD,,in_stock
+KETTLE-RED,Red Kettle,https://example-store.test/products/red-kettle,34.50 USD,,in_stock
+TEAPOT-GREEN,Green Teapot,https://example-store.test/products/green-teapot,24.00 USD,,in_stock
+BOWL-LARGE,"Ceramic Bowl, Large",https://example-store.test/products/ceramic-bowl,18.00 USD,14.40 USD,in_stock
+BOARD-WALNUT,Walnut Cutting Board,https://example-store.test/products/walnut-board,45.00 USD,,out_of_stock
+APRON-LINEN-M,"Linen Apron, Medium",https://example-store.test/products/linen-apron?variant=2,29.00 USD,,preorder
+COASTER-OAK,Oak Coaster Set,https://example-store.test/products/oak-coaster,9.50 USD,,in_stock
+LADLE-STEEL,Steel Ladle,https://example-store.test/products/steel-ladle,11.25 USD,,backorder

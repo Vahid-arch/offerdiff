@@ -30,7 +30,10 @@ public static class JsonLdExtractor
             }
             catch (JsonException ex)
             {
-                result.Errors.Add($"JSON-LD block {i + 1}: invalid JSON ({ex.Message})");
+                // ex.LineNumber is 0-based inside the block; add the block's start so it points at the page line
+                var line = html[..blocks[i].Groups[1].Index].Count(c => c == '\n') + 1 + (ex.LineNumber ?? 0);
+                var reason = ex.Message.Split([" Path:", " LineNumber:", ". "], StringSplitOptions.None)[0].TrimEnd('.');
+                result.Errors.Add($"JSON-LD block {i + 1}: invalid JSON (line {line}: {reason})");
             }
         }
         return result;

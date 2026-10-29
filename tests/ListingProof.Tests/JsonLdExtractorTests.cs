@@ -84,7 +84,21 @@ public class JsonLdExtractorTests
         var result = ExtractFixture("steel-ladle");
 
         Assert.Empty(result.Offers);
-        Assert.StartsWith("JSON-LD block 1: invalid JSON", Assert.Single(result.Errors));
+        Assert.Equal(
+            "JSON-LD block 1: invalid JSON (line 10: The JSON object contains a trailing comma at the end which is not supported in this mode)",
+            Assert.Single(result.Errors));
+    }
+
+    [Fact]
+    public void Invalid_json_message_is_short_and_points_at_page_line()
+    {
+        var html = "<p>intro</p>\n<script type=\"application/ld+json\">{\"ok\": 1}</script>\n" +
+                   "<script type=\"application/ld+json\">\n{\n  \"@type\": \"Product\"\n  \"sku\": \"X\"\n}\n</script>";
+
+        var error = Assert.Single(JsonLdExtractor.Extract(html).Errors);
+
+        Assert.StartsWith("JSON-LD block 2: invalid JSON (line 6: ", error);
+        Assert.DoesNotContain("LineNumber", error);
     }
 
     [Fact]

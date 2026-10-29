@@ -1,4 +1,4 @@
-namespace ListingProof.Core;
+namespace OfferDiff.Core;
 
 public record FeedItem(int Row, string Id, string Title, string Link, Price Price, Price? SalePrice, string Availability);
 

@@ -1,0 +1,9 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/OfferDiff.Cli/OfferDiff.Cli.csproj" />
+    <Project Path="src/OfferDiff.Core/OfferDiff.Core.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/OfferDiff.Tests/OfferDiff.Tests.csproj" />
+  </Folder>
+</Solution>

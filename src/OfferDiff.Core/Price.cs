@@ -1,6 +1,6 @@
 using System.Globalization;
 
-namespace ListingProof.Core;
+namespace OfferDiff.Core;
 
 public readonly record struct Price(decimal Amount, string Currency)
 {

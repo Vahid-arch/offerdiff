@@ -1,7 +1,7 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <ItemGroup>
-    <ProjectReference Include="..\ListingProof.Core\ListingProof.Core.csproj" />
+    <ProjectReference Include="..\OfferDiff.Core\OfferDiff.Core.csproj" />
   </ItemGroup>
 
   <PropertyGroup>

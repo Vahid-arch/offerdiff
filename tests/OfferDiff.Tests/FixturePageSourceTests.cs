@@ -1,6 +1,6 @@
-using ListingProof.Core;
+using OfferDiff.Core;
 
-namespace ListingProof.Tests;
+namespace OfferDiff.Tests;
 
 public class FixturePageSourceTests
 {

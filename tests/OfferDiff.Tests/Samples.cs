@@ -1,6 +1,6 @@
-namespace ListingProof.Tests;
+namespace OfferDiff.Tests;
 
-// Tests run from tests/ListingProof.Tests/bin/<config>/<tfm>/, five folders below the repo root.
+// Tests run from tests/OfferDiff.Tests/bin/<config>/<tfm>/, five folders below the repo root.
 static class Samples
 {
     public static readonly string Folder = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "../../../../../samples"));

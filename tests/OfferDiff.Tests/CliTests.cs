@@ -1,6 +1,6 @@
 using System.Reflection;
 
-namespace ListingProof.Tests;
+namespace OfferDiff.Tests;
 
 // Calls the CLI's Main directly and captures what it prints. No other test writes to Console.
 public class CliTests : IDisposable
@@ -21,7 +21,7 @@ public class CliTests : IDisposable
     }
 
     // Top-level statements compile to an internal Program class, so reach Main through the assembly's entry point.
-    static int Run(params string[] args) => (int)Assembly.Load("ListingProof.Cli").EntryPoint!.Invoke(null, [args])!;
+    static int Run(params string[] args) => (int)Assembly.Load("OfferDiff.Cli").EntryPoint!.Invoke(null, [args])!;
 
     [Fact]
     public void No_argument_exits_2()
@@ -47,7 +47,7 @@ public class CliTests : IDisposable
     [Fact]
     public void Unreadable_feed_exits_2()
     {
-        var csv = Path.Combine(Path.GetTempPath(), $"listingproof-{Guid.NewGuid():N}.csv");
+        var csv = Path.Combine(Path.GetTempPath(), $"offerdiff-{Guid.NewGuid():N}.csv");
         File.Copy(Samples.Feed, csv);
         try
         {

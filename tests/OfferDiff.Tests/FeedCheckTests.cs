@@ -1,10 +1,10 @@
-using ListingProof.Core;
+using OfferDiff.Core;
 
-namespace ListingProof.Tests;
+namespace OfferDiff.Tests;
 
 public class FeedCheckTests : IDisposable
 {
-    readonly string csv = Path.Combine(Path.GetTempPath(), $"listingproof-{Guid.NewGuid():N}.csv");
+    readonly string csv = Path.Combine(Path.GetTempPath(), $"offerdiff-{Guid.NewGuid():N}.csv");
 
     public void Dispose() => File.Delete(csv);
 

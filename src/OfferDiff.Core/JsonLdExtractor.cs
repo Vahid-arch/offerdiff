@@ -2,7 +2,7 @@ using System.Globalization;
 using System.Text.Json;
 using System.Text.RegularExpressions;
 
-namespace ListingProof.Core;
+namespace OfferDiff.Core;
 
 public record PageOffer(string? Sku, decimal? Price, string? Currency, string? Availability, string? Url);
 

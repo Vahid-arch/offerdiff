@@ -1,6 +1,6 @@
-﻿using ListingProof.Core;
+﻿using OfferDiff.Core;
 
-const string Usage = "usage: ListingProof.Cli <feed.csv> [--pages <folder>]";
+const string Usage = "usage: OfferDiff.Cli <feed.csv> [--pages <folder>]";
 
 string? csv = null, pages = null;
 for (var i = 0; i < args.Length; i++)

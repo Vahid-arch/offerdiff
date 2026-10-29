@@ -19,8 +19,8 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\src\ListingProof.Core\ListingProof.Core.csproj" />
-    <ProjectReference Include="..\..\src\ListingProof.Cli\ListingProof.Cli.csproj" />
+    <ProjectReference Include="..\..\src\OfferDiff.Core\OfferDiff.Core.csproj" />
+    <ProjectReference Include="..\..\src\OfferDiff.Cli\OfferDiff.Cli.csproj" />
   </ItemGroup>
 
 </Project>

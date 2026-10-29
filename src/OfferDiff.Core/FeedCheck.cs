@@ -1,4 +1,4 @@
-namespace ListingProof.Core;
+namespace OfferDiff.Core;
 
 public record CheckReport(List<FeedError> FeedErrors, List<ComparisonResult> Results)
 {

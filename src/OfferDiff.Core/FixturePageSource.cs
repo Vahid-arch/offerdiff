@@ -1,4 +1,4 @@
-namespace ListingProof.Core;
+namespace OfferDiff.Core;
 
 // Stands in for an HTTP fetcher: same input (a URL), same output (the page HTML), but read from disk.
 public class FixturePageSource(string pagesFolder)

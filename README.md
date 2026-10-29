@@ -1,4 +1,4 @@
-# ListingProof
+# OfferDiff
 
 Checks that the price, currency and availability in a product feed match the structured data on each product page.
 
@@ -9,7 +9,7 @@ page says something different (for example the feed says 34.50 USD and the page 
 the product can be disapproved with **"Mismatched value (page crawl)"**. See Google's help page:
 <https://support.google.com/merchants/answer/9992725>
 
-ListingProof finds those differences before Google does, and shows the evidence for each row:
+OfferDiff finds those differences before Google does, and shows the evidence for each row:
 the feed value, the page value and the reason.
 
 ## Quick start (Windows)
@@ -18,9 +18,9 @@ the feed value, the page value and the reason.
 2. Get the code and run it on the sample feed:
 
 ```powershell
-git clone <repository-url> listingproof
-cd listingproof
-dotnet run --project src\ListingProof.Cli -- samples\feed.csv
+git clone https://github.com/Vahid-arch/offerdiff.git
+cd offerdiff
+dotnet run --project src\OfferDiff.Cli -- samples\feed.csv
 ```
 
 Run the tests with `dotnet test`.
@@ -28,7 +28,7 @@ Run the tests with `dotnet test`.
 ### Options
 
 ```
-ListingProof.Cli <feed.csv> [--pages <folder>]
+OfferDiff.Cli <feed.csv> [--pages <folder>]
 ```
 
 `--pages` is the folder with the local product pages. Default: a `pages` folder next to the CSV file.

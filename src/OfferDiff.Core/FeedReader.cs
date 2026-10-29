@@ -1,6 +1,6 @@
 using System.Text;
 
-namespace ListingProof.Core;
+namespace OfferDiff.Core;
 
 public static class FeedReader
 {

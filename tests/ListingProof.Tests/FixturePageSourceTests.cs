@@ -27,9 +27,17 @@ public class FixturePageSourceTests
     [InlineData("https://example-store.test/products/../../secret")]
     [InlineData("https://example-store.test/products/%2e%2e/%2e%2e/secret")]
     [InlineData("https://example-store.test/products/..%5C..%5Csecret")]
-    [InlineData("https://example-store.test/C:%5CWindows%5Cwin")]
     public void Rejects_other_hosts_and_paths_that_escape(string url)
     {
         Assert.Throws<ArgumentException>(() => source.ResolvePath(url));
+    }
+
+    [Fact]
+    public void Rejects_windows_drive_path_on_windows()
+    {
+        // on Linux "\" is an ordinary file-name character, so this URL stays inside the pages folder there
+        if (!OperatingSystem.IsWindows()) return;
+
+        Assert.Throws<ArgumentException>(() => source.ResolvePath("https://example-store.test/C:%5CWindows%5Cwin"));
     }
 }

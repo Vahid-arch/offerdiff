@@ -166,9 +166,8 @@ public class ComparerTests
     [Fact]
     public void Sample_feed_gives_expected_verdict_per_row()
     {
-        var samples = Path.Combine(AppContext.BaseDirectory, "../../../../../samples");
-        var pages = new FixturePageSource(Path.Combine(samples, "pages"));
-        var feed = FeedReader.Read(Path.Combine(samples, "feed.csv"));
+        var pages = new FixturePageSource(Samples.Pages);
+        var feed = FeedReader.Read(Samples.Feed);
 
         var verdicts = feed.Items.Select(i => Comparer.Compare(i, pages.GetHtml)).ToDictionary(r => r.Id, r => r.Verdict);
 

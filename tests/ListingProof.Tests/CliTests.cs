@@ -5,7 +5,6 @@ namespace ListingProof.Tests;
 // Calls the CLI's Main directly and captures what it prints. No other test writes to Console.
 public class CliTests : IDisposable
 {
-    static readonly string Samples = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "../../../../../samples"));
     readonly StringWriter output = new(), errors = new();
     readonly TextWriter originalOut = Console.Out, originalError = Console.Error;
 
@@ -34,14 +33,14 @@ public class CliTests : IDisposable
     [Fact]
     public void Missing_feed_file_exits_2()
     {
-        Assert.Equal(2, Run(Path.Combine(Samples, "nope.csv")));
+        Assert.Equal(2, Run(Path.Combine(Samples.Folder, "nope.csv")));
         Assert.Contains("feed file not found", errors.ToString());
     }
 
     [Fact]
     public void Missing_pages_folder_exits_2()
     {
-        Assert.Equal(2, Run(Path.Combine(Samples, "feed.csv"), "--pages", Path.Combine(Samples, "nope")));
+        Assert.Equal(2, Run(Samples.Feed, "--pages", Path.Combine(Samples.Folder, "nope")));
         Assert.Contains("pages folder not found", errors.ToString());
     }
 
@@ -49,12 +48,12 @@ public class CliTests : IDisposable
     public void Unreadable_feed_exits_2()
     {
         var csv = Path.Combine(Path.GetTempPath(), $"listingproof-{Guid.NewGuid():N}.csv");
-        File.Copy(Path.Combine(Samples, "feed.csv"), csv);
+        File.Copy(Samples.Feed, csv);
         try
         {
             // an exclusive lock, like Excel holds on an open CSV
             using (File.Open(csv, FileMode.Open, FileAccess.Read, FileShare.None))
-                Assert.Equal(2, Run(csv, "--pages", Path.Combine(Samples, "pages")));
+                Assert.Equal(2, Run(csv, "--pages", Samples.Pages));
             Assert.Contains("cannot read feed file", errors.ToString());
         }
         finally
@@ -66,7 +65,7 @@ public class CliTests : IDisposable
     [Fact]
     public void Sample_feed_prints_table_and_exits_1()
     {
-        Assert.Equal(1, Run(Path.Combine(Samples, "feed.csv")));
+        Assert.Equal(1, Run(Samples.Feed));
 
         var text = output.ToString();
         Assert.Contains("KETTLE-RED     mismatch  url           price: feed 34.50, page 39.00", text);

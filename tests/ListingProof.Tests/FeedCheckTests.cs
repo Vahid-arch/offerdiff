@@ -4,7 +4,6 @@ namespace ListingProof.Tests;
 
 public class FeedCheckTests : IDisposable
 {
-    static readonly string Samples = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "../../../../../samples"));
     readonly string csv = Path.Combine(Path.GetTempPath(), $"listingproof-{Guid.NewGuid():N}.csv");
 
     public void Dispose() => File.Delete(csv);
@@ -12,7 +11,7 @@ public class FeedCheckTests : IDisposable
     [Fact]
     public void Sample_feed_end_to_end()
     {
-        var report = FeedCheck.Run(Path.Combine(Samples, "feed.csv")); // default pages folder next to the CSV
+        var report = FeedCheck.Run(Samples.Feed); // default pages folder next to the CSV
 
         Assert.Empty(report.FeedErrors);
         Assert.Equal(4, report.Count(Verdict.Match));
@@ -32,7 +31,7 @@ public class FeedCheckTests : IDisposable
             BAD,Bad Row,https://example-store.test/products/bad,twelve,,in_stock
             """);
 
-        var report = FeedCheck.Run(csv, Path.Combine(Samples, "pages"));
+        var report = FeedCheck.Run(csv, Samples.Pages);
 
         Assert.Equal(4, Assert.Single(report.FeedErrors).Row);
         Assert.Equal("2 rows: 1 match, 0 mismatch, 1 unknown (1 bad feed rows skipped)", report.Summary);
@@ -47,7 +46,7 @@ public class FeedCheckTests : IDisposable
     {
         File.WriteAllText(csv, content);
 
-        var report = FeedCheck.Run(csv, Path.Combine(Samples, "pages"));
+        var report = FeedCheck.Run(csv, Samples.Pages);
 
         Assert.Empty(report.Results);
         Assert.Equal(2, report.ExitCode);

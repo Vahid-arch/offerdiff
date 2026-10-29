@@ -75,15 +75,4 @@ public class FeedReaderTests
         Assert.Empty(result.Items);
         Assert.Contains("sale_price", Assert.Single(result.Errors).Message);
     }
-
-    [Fact]
-    public void Sample_feed_parses_cleanly()
-    {
-        var path = Path.Combine(AppContext.BaseDirectory, "../../../../../samples/feed.csv");
-
-        var result = FeedReader.Read(path);
-
-        Assert.Empty(result.Errors);
-        Assert.Equal(8, result.Items.Count);
-    }
 }

@@ -4,7 +4,7 @@ namespace ListingProof.Tests;
 
 public class JsonLdExtractorTests
 {
-    static readonly FixturePageSource Pages = new(Path.Combine(AppContext.BaseDirectory, "../../../../../samples/pages"));
+    static readonly FixturePageSource Pages = new(Samples.Pages);
     const string Store = "https://example-store.test/products/";
 
     static JsonLdResult ExtractFixture(string slug) => JsonLdExtractor.Extract(Pages.GetHtml(Store + slug));

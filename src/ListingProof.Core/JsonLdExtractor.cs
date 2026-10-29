@@ -84,14 +84,16 @@ public static class JsonLdExtractor
         }
         else if (IsType(node, "AggregateOffer"))
         {
-            var low = Number(node, "lowPrice");
-            var high = Number(node, "highPrice") ?? low;
+            var low = ReadPrice(node, "lowPrice", result);
+            var high = ReadPrice(node, "highPrice", result) ?? low;
             // a price range has no single price to compare, so leave it empty rather than pick one
+            if (low != null && low != high)
+                result.Errors.Add(string.Create(CultureInfo.InvariantCulture, $"price range {low}-{high}"));
             AddOffer(node, low == high ? low : null, sku, url, result);
         }
         else if (IsType(node, "Offer") || (inOffers && !node.TryGetProperty("@type", out _) && node.TryGetProperty("price", out _)))
         {
-            AddOffer(node, Number(node, "price"), sku, url, result);
+            AddOffer(node, ReadPrice(node, "price", result), sku, url, result);
         }
     }
 
@@ -122,7 +124,13 @@ public static class JsonLdExtractor
             _ => null,
         };
 
-    // JSON-LD prices appear both as numbers (12.99) and strings ("12.99").
-    static decimal? Number(JsonElement node, string name) =>
-        decimal.TryParse(Text(node, name), NumberStyles.AllowDecimalPoint, CultureInfo.InvariantCulture, out var d) ? d : null;
+    // JSON-LD prices appear both as numbers (12.99) and strings ("12.99"). Anything else is reported, not guessed.
+    static decimal? ReadPrice(JsonElement node, string name, JsonLdResult result)
+    {
+        if (!node.TryGetProperty(name, out var v) || v.ValueKind == JsonValueKind.Null) return null;
+        if (decimal.TryParse(Text(node, name), NumberStyles.AllowDecimalPoint, CultureInfo.InvariantCulture, out var d)) return d;
+
+        result.Errors.Add($"unreadable price '{(v.ValueKind == JsonValueKind.String ? v.GetString() : v.GetRawText())}'");
+        return null;
+    }
 }

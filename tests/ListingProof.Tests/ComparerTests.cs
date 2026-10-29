@@ -125,6 +125,22 @@ public class ComparerTests
     }
 
     [Fact]
+    public void Dropped_page_price_explains_why()
+    {
+        const string html = """
+            <script type="application/ld+json">
+            {"@type":"Product","offers":{"@type":"AggregateOffer","url":"https://example-store.test/products/mug?variant=2",
+             "lowPrice":5,"highPrice":9,"priceCurrency":"USD","availability":"InStock"}}
+            </script>
+            """;
+
+        var result = Comparer.Compare(Item(), _ => html);
+
+        Assert.Equal(Verdict.Unknown, result.Verdict);
+        Assert.Equal(["page price missing", "price range 5-9"], result.Details);
+    }
+
+    [Fact]
     public void Page_without_offers_is_unknown_with_extractor_errors()
     {
         var result = Comparer.Compare(Item(), new JsonLdResult([], ["JSON-LD block 1: invalid JSON (x)"]));

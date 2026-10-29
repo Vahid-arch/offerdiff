@@ -110,7 +110,25 @@ public class JsonLdExtractorTests
             </script>
             """;
 
-        Assert.Null(Assert.Single(JsonLdExtractor.Extract(html).Offers).Price);
+        var result = JsonLdExtractor.Extract(html);
+
+        Assert.Null(Assert.Single(result.Offers).Price);
+        Assert.Equal("price range 10-20", Assert.Single(result.Errors));
+    }
+
+    [Fact]
+    public void Unreadable_price_is_reported()
+    {
+        var html = """
+            <script type="application/ld+json">
+            {"@type":"Product","sku":"X","offers":{"@type":"Offer","price":"5,00","priceCurrency":"USD"}}
+            </script>
+            """;
+
+        var result = JsonLdExtractor.Extract(html);
+
+        Assert.Null(Assert.Single(result.Offers).Price);
+        Assert.Equal("unreadable price '5,00'", Assert.Single(result.Errors));
     }
 
     [Fact]
@@ -151,7 +169,7 @@ public class JsonLdExtractorTests
         var offer = Assert.Single(result.Offers);
         Assert.Null(offer.Price);
         Assert.Null(offer.Availability);
-        Assert.Equal("unrecognized availability 'Maybe'", Assert.Single(result.Errors));
+        Assert.Equal(["unreadable price '{\"v\":1}'", "unrecognized availability 'Maybe'"], result.Errors);
     }
 
     [Theory]

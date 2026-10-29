@@ -1,5 +1,7 @@
 # OfferDiff
 
+[![CI](https://github.com/Vahid-arch/offerdiff/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/Vahid-arch/offerdiff/actions/workflows/ci.yml)
+
 Checks that the price, currency and availability in a product feed match the structured data on each product page.
 
 ## Why

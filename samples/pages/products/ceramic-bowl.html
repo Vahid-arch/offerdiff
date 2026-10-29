@@ -1,0 +1,22 @@
+<!doctype html>
+<html><head><title>Ceramic Bowl, Large - Example Store</title>
+<!-- pattern: two JSON-LD blocks, only the second is a Product; page shows the sale price -->
+<script type="application/ld+json">
+{ "@context": "https://schema.org", "@type": "Organization", "name": "Example Store", "url": "https://example-store.test/" }
+</script>
+<script type='application/ld+json'>
+{
+  "@context": "https://schema.org",
+  "@type": "Product",
+  "name": "Ceramic Bowl, Large",
+  "sku": "BOWL-LARGE",
+  "offers": {
+    "@type": "Offer",
+    "url": "https://example-store.test/products/ceramic-bowl",
+    "price": 14.40,
+    "priceCurrency": "USD",
+    "availability": "https://schema.org/InStock"
+  }
+}
+</script>
+</head><body><h1>Ceramic Bowl, Large</h1><p><s>$18.00</s> $14.40</p></body></html>

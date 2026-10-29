@@ -1,0 +1,24 @@
+<!doctype html>
+<html><head><title>Green Teapot - Example Store</title>
+<!-- pattern: @graph wrapper; bare availability name; page currency differs from feed -->
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    { "@type": "WebPage", "name": "Green Teapot" },
+    {
+      "@type": "Product",
+      "name": "Green Teapot",
+      "sku": "TEAPOT-GREEN",
+      "offers": {
+        "@type": "Offer",
+        "url": "https://example-store.test/products/green-teapot",
+        "price": 24.00,
+        "priceCurrency": "EUR",
+        "availability": "InStock"
+      }
+    }
+  ]
+}
+</script>
+</head><body><h1>Green Teapot</h1><p>24.00 EUR</p></body></html>

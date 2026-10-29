@@ -1,0 +1,21 @@
+<!doctype html>
+<html><head><title>Red Kettle - Example Store</title>
+<!-- pattern: offers as an array; price as a string; http:// availability; page price differs from feed -->
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Product",
+  "name": "Red Kettle",
+  "sku": "KETTLE-RED",
+  "offers": [
+    {
+      "@type": "Offer",
+      "url": "https://example-store.test/products/red-kettle",
+      "price": "39.00",
+      "priceCurrency": "USD",
+      "availability": "http://schema.org/InStock"
+    }
+  ]
+}
+</script>
+</head><body><h1>Red Kettle</h1><p>$39.00</p></body></html>

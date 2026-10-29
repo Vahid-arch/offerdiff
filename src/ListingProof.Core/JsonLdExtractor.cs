@@ -1,0 +1,123 @@
+using System.Globalization;
+using System.Text.Json;
+using System.Text.RegularExpressions;
+
+namespace ListingProof.Core;
+
+public record PageOffer(string? Sku, decimal? Price, string? Currency, string? Availability, string? Url);
+
+public record JsonLdResult(List<PageOffer> Offers, List<string> Errors);
+
+public static class JsonLdExtractor
+{
+    // shortcut: regex HTML scanning, replace with AngleSharp when real pages are supported
+    static readonly Regex ScriptBlock = new(
+        """<script[^>]*type\s*=\s*["']application/ld\+json["'][^>]*>(.*?)</script>""",
+        RegexOptions.IgnoreCase | RegexOptions.Singleline);
+
+    public static JsonLdResult Extract(string html)
+    {
+        var result = new JsonLdResult([], []);
+        var blocks = ScriptBlock.Matches(html);
+        if (blocks.Count == 0) result.Errors.Add("no JSON-LD block on page");
+
+        for (var i = 0; i < blocks.Count; i++)
+        {
+            try
+            {
+                using var doc = JsonDocument.Parse(blocks[i].Groups[1].Value);
+                Visit(doc.RootElement, null, null, result);
+            }
+            catch (JsonException ex)
+            {
+                result.Errors.Add($"JSON-LD block {i + 1}: invalid JSON ({ex.Message})");
+            }
+        }
+        return result;
+    }
+
+    // "https://schema.org/InStock", "http://schema.org/InStock" or "InStock" -> "in_stock". Unknown -> null.
+    public static string? MapAvailability(string? value)
+    {
+        var name = value?.Trim() ?? "";
+        foreach (var prefix in new[] { "https://schema.org/", "http://schema.org/" })
+            if (name.StartsWith(prefix, StringComparison.OrdinalIgnoreCase)) name = name[prefix.Length..];
+
+        return name.ToLowerInvariant() switch
+        {
+            "instock" => "in_stock",
+            "outofstock" => "out_of_stock",
+            "preorder" => "preorder",
+            "backorder" => "backorder",
+            _ => null,
+        };
+    }
+
+    // sku and url come from the enclosing Product, so an Offer without its own still gets them.
+    static void Visit(JsonElement node, string? sku, string? url, JsonLdResult result)
+    {
+        if (node.ValueKind == JsonValueKind.Array)
+        {
+            foreach (var item in node.EnumerateArray()) Visit(item, sku, url, result);
+            return;
+        }
+        if (node.ValueKind != JsonValueKind.Object) return;
+
+        if (node.TryGetProperty("@graph", out var graph)) Visit(graph, sku, url, result);
+
+        if (IsType(node, "Product") || IsType(node, "ProductGroup"))
+        {
+            sku = Text(node, "sku") ?? sku;
+            url = Text(node, "url") ?? url;
+            if (node.TryGetProperty("offers", out var offers)) Visit(offers, sku, url, result);
+            // variants do not inherit the group's sku/url, or every variant would look like the same product
+            if (node.TryGetProperty("hasVariant", out var variants)) Visit(variants, null, null, result);
+        }
+        else if (IsType(node, "AggregateOffer") && node.TryGetProperty("offers", out var inner))
+        {
+            Visit(inner, sku, url, result);
+        }
+        else if (IsType(node, "AggregateOffer"))
+        {
+            var low = Number(node, "lowPrice");
+            var high = Number(node, "highPrice") ?? low;
+            // a price range has no single price to compare, so leave it empty rather than pick one
+            AddOffer(node, low == high ? low : null, sku, url, result);
+        }
+        else if (IsType(node, "Offer"))
+        {
+            AddOffer(node, Number(node, "price"), sku, url, result);
+        }
+    }
+
+    static void AddOffer(JsonElement node, decimal? price, string? sku, string? url, JsonLdResult result)
+    {
+        var rawAvailability = Text(node, "availability");
+        var availability = MapAvailability(rawAvailability);
+        if (rawAvailability != null && availability == null)
+            result.Errors.Add($"unrecognized availability '{rawAvailability}'");
+
+        result.Offers.Add(new PageOffer(
+            Text(node, "sku") ?? sku, price, Text(node, "priceCurrency"), availability, Text(node, "url") ?? url));
+    }
+
+    static bool IsType(JsonElement node, string type) =>
+        node.TryGetProperty("@type", out var t) && t.ValueKind switch
+        {
+            JsonValueKind.String => t.GetString() == type,
+            JsonValueKind.Array => t.EnumerateArray().Any(x => x.ValueKind == JsonValueKind.String && x.GetString() == type),
+            _ => false,
+        };
+
+    static string? Text(JsonElement node, string name) =>
+        !node.TryGetProperty(name, out var v) ? null : v.ValueKind switch
+        {
+            JsonValueKind.String => v.GetString(),
+            JsonValueKind.Number => v.GetRawText(),
+            _ => null,
+        };
+
+    // JSON-LD prices appear both as numbers (12.99) and strings ("12.99").
+    static decimal? Number(JsonElement node, string name) =>
+        decimal.TryParse(Text(node, name), NumberStyles.AllowDecimalPoint, CultureInfo.InvariantCulture, out var d) ? d : null;
+}

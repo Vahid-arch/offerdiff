@@ -1,0 +1,21 @@
+<!doctype html>
+<html><head><title>Walnut Cutting Board - Example Store</title>
+<!-- pattern: AggregateOffer with a single price (lowPrice = highPrice); out of stock -->
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Product",
+  "name": "Walnut Cutting Board",
+  "sku": "BOARD-WALNUT",
+  "offers": {
+    "@type": "AggregateOffer",
+    "url": "https://example-store.test/products/walnut-board",
+    "lowPrice": 45.00,
+    "highPrice": 45.00,
+    "offerCount": 1,
+    "priceCurrency": "USD",
+    "availability": "https://schema.org/OutOfStock"
+  }
+}
+</script>
+</head><body><h1>Walnut Cutting Board</h1><p>$45.00 - Sold out</p></body></html>

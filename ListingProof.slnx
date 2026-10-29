@@ -1,0 +1,9 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/ListingProof.Cli/ListingProof.Cli.csproj" />
+    <Project Path="src/ListingProof.Core/ListingProof.Core.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/ListingProof.Tests/ListingProof.Tests.csproj" />
+  </Folder>
+</Solution>

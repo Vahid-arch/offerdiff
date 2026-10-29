@@ -24,6 +24,7 @@ public static class FeedReader
             return new FeedReadResult(items, errors);
         }
 
+        var firstRowById = new Dictionary<string, int>();
         for (var i = 1; i < lines.Length; i++)
         {
             var row = i + 1;
@@ -42,6 +43,11 @@ public static class FeedReader
             if (id == "")
             {
                 errors.Add(new FeedError(row, "id is empty"));
+                continue;
+            }
+            if (firstRowById.TryGetValue(id, out var firstRow))
+            {
+                errors.Add(new FeedError(row, $"duplicate id '{id}', first used on row {firstRow}"));
                 continue;
             }
             if (!Price.TryParse(Get("price"), out var price))
@@ -66,6 +72,8 @@ public static class FeedReader
                 continue;
             }
 
+            // only valid rows claim an id, so a bad first row does not block a corrected one below it
+            firstRowById[id] = row;
             items.Add(new FeedItem(row, id, Get("title"), Get("link"), price, salePrice, availability));
         }
 

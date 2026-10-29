@@ -68,6 +68,20 @@ public class FeedReaderTests
     }
 
     [Fact]
+    public void Duplicate_id_is_reported_with_first_row()
+    {
+        var result = FeedReader.Parse(Header +
+            "A1,Mug,https://example-store.test/products/a,twelve,,in_stock\n" +    // row 2: bad, does not claim A1
+            "A1,Mug,https://example-store.test/products/a,12.99 USD,,in_stock\n" + // row 3: kept
+            "B2,Kettle,https://example-store.test/products/b,9.00 USD,,in_stock\n" +
+            "A1,Mug again,https://example-store.test/products/a,12.99 USD,,in_stock\n");
+
+        Assert.Equal([3, 4], result.Items.Select(i => i.Row));
+        Assert.Equal([2, 5], result.Errors.Select(e => e.Row));
+        Assert.Equal("duplicate id 'A1', first used on row 3", result.Errors[1].Message);
+    }
+
+    [Fact]
     public void Missing_column_is_reported()
     {
         var result = FeedReader.Parse("id,title,link,price\nA1,Mug,https://example-store.test/products/a,12.99 USD\n");

@@ -15,7 +15,16 @@ if (!File.Exists(csv)) return Fail($"feed file not found: {csv}");
 pages ??= FeedCheck.DefaultPagesFolder(csv);
 if (!Directory.Exists(pages)) return Fail($"pages folder not found: {pages}");
 
-var report = FeedCheck.Run(csv, pages);
+CheckReport report;
+try
+{
+    report = FeedCheck.Run(csv, pages);
+}
+catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+{
+    // e.g. the CSV is open in Excel, which locks it
+    return Fail($"cannot read feed file: {ex.Message}");
+}
 
 foreach (var error in report.FeedErrors)
     Console.WriteLine($"feed row {error.Row}: {error.Message}");

@@ -6,6 +6,8 @@
 
   <PropertyGroup>
     <OutputType>Exe</OutputType>
+    <!-- the command is "offerdiff"; set here, not with -p:AssemblyName, which would rename OfferDiff.Core too -->
+    <AssemblyName>offerdiff</AssemblyName>
     <TargetFramework>net10.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>

@@ -15,11 +15,27 @@ public static class JsonLdExtractor
         """<script[^>]*type\s*=\s*["']application/ld\+json["'][^>]*>(.*?)</script>""",
         RegexOptions.IgnoreCase | RegexOptions.Singleline);
 
+    public const string JavaScriptHint =
+        "structured data may be added by JavaScript; OfferDiff reads server HTML only (see README: JavaScript-rendered pages)";
+
+    // Signs of a JavaScript app shell (Angular, React, Vue, Next.js, Angular SSR's beasties): same regex shortcut as above.
+    static readonly Regex AppShellMarker = new(
+        """<app-root\b|\bng-version=|<div\b[^>]*\bid\s*=\s*["']?(root|app)\b|__NEXT_DATA__|data-beasties-container""",
+        RegexOptions.IgnoreCase, TimeSpan.FromSeconds(1));
+    static readonly Regex Body = new("""<body\b[^>]*>(.*?)(</body>|$)""",
+        RegexOptions.IgnoreCase | RegexOptions.Singleline, TimeSpan.FromSeconds(1));
+    static readonly Regex NonText = new("""<(script|style|noscript|template)\b.*?</\1\s*>|<[^>]*>""",
+        RegexOptions.IgnoreCase | RegexOptions.Singleline, TimeSpan.FromSeconds(1));
+
     public static JsonLdResult Extract(string html)
     {
         var result = new JsonLdResult([], []);
         var blocks = ScriptBlock.Matches(html);
-        if (blocks.Count == 0) result.Errors.Add("no JSON-LD block on page");
+        if (blocks.Count == 0)
+        {
+            result.Errors.Add("no JSON-LD block on page");
+            if (LooksLikeJavaScriptApp(html)) result.Errors.Add(JavaScriptHint);
+        }
 
         for (var i = 0; i < blocks.Count; i++)
         {
@@ -37,6 +53,24 @@ public static class JsonLdExtractor
             }
         }
         return result;
+    }
+
+    // A hint only, never a verdict: framework markers, or a body with almost no visible text.
+    static bool LooksLikeJavaScriptApp(string html)
+    {
+        try
+        {
+            if (AppShellMarker.IsMatch(html)) return true;
+            var body = Body.Match(html);
+            if (!body.Success) return false; // no <body> at all: too little to tell
+            var text = System.Net.WebUtility.HtmlDecode(NonText.Replace(body.Groups[1].Value, " "));
+            // real product pages show a name, a price and a description; an app shell shows nothing (or a noscript note)
+            return text.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries).Length < 3;
+        }
+        catch (RegexMatchTimeoutException)
+        {
+            return false; // a huge or hostile page: skip the hint rather than stall the run
+        }
     }
 
     // "https://schema.org/InStock", "http://schema.org/InStock" or "InStock" -> "in_stock". Unknown -> null.

@@ -1,0 +1,7 @@
+id,title,link,price,sale_price,availability
+MUG-SAND,Desert Sand Mug,https://vahid-arch.github.io/offerdiff/demo/products/sand-mug.html,45.00 AED,,in_stock
+TRAY-PALM,Palm Leaf Tray,https://vahid-arch.github.io/offerdiff/demo/products/palm-tray.html,79.00 AED,,in_stock
+LAMP-DUNE,Dune Table Lamp,https://vahid-arch.github.io/offerdiff/demo/products/dune-lamp.html,250.00 AED,199.00 AED,in_stock
+CANDLE-OUD,Oud Scented Candle,https://vahid-arch.github.io/offerdiff/demo/products/oud-candle.html,60.00 AED,,out_of_stock
+CUSHION-FALAJ-S,"Falaj Cushion, Small",https://vahid-arch.github.io/offerdiff/demo/products/falaj-cushion.html?variant=1,70.00 AED,,in_stock
+CUSHION-FALAJ-L,"Falaj Cushion, Large",https://vahid-arch.github.io/offerdiff/demo/products/falaj-cushion.html?variant=2,95.00 AED,,in_stock

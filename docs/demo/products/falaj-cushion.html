@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Falaj Cushion – OfferDiff Demo Store</title>
+<link rel="canonical" href="https://vahid-arch.github.io/offerdiff/demo/products/falaj-cushion.html">
+<link rel="stylesheet" href="../style.css">
+<!-- demo case: ProductGroup with 2 variants at different prices; each feed row matches its own ?variant=N url -->
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "ProductGroup",
+  "name": "Falaj Cushion",
+  "productGroupID": "CUSHION-FALAJ",
+  "variesBy": "https://schema.org/size",
+  "hasVariant": [
+    {
+      "@type": "Product",
+      "name": "Falaj Cushion, Small",
+      "sku": "CUSHION-FALAJ-S",
+      "offers": {
+        "@type": "Offer",
+        "url": "https://vahid-arch.github.io/offerdiff/demo/products/falaj-cushion.html?variant=1",
+        "price": 70.00,
+        "priceCurrency": "AED",
+        "availability": "https://schema.org/InStock"
+      }
+    },
+    {
+      "@type": "Product",
+      "name": "Falaj Cushion, Large",
+      "sku": "CUSHION-FALAJ-L",
+      "offers": {
+        "@type": "Offer",
+        "url": "https://vahid-arch.github.io/offerdiff/demo/products/falaj-cushion.html?variant=2",
+        "price": 95.00,
+        "priceCurrency": "AED",
+        "availability": "https://schema.org/InStock"
+      }
+    }
+  ]
+}
+</script>
+</head>
+<body>
+<header><a href="../index.html">OfferDiff Demo Store</a></header>
+<main>
+<h1>Falaj Cushion</h1>
+<p class="price">From AED 70.00</p>
+<ul>
+  <li><a href="falaj-cushion.html?variant=1">Small (40 × 40 cm)</a> – AED 70.00, in stock</li>
+  <li><a href="falaj-cushion.html?variant=2">Large (60 × 60 cm)</a> – AED 95.00, in stock</li>
+</ul>
+<p>A cotton cushion with a woven pattern inspired by old irrigation channels.</p>
+</main>
+<footer>Synthetic demo store for OfferDiff. Nothing is for sale.</footer>
+</body>
+</html>

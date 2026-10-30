@@ -62,6 +62,34 @@ Progress (`checking 12/240: <id>`) goes to stderr, so the table on stdout stays 
 
 > **Only check stores you own or have permission to check.**
 
+## Try live mode on the demo store
+
+The project has a small public demo store on GitHub Pages, so you can try `--live` against real URLs
+without checking anyone else's site: <https://vahid-arch.github.io/offerdiff/demo/>. Its five
+products are invented, prices are in AED, and nothing is for sale.
+
+```powershell
+dotnet run --project src\OfferDiff.Cli -- samples\live-demo-feed.csv --live
+```
+
+Expected result line (exit code 1, because of the deliberate mismatch):
+
+```
+6 rows: 5 match, 1 mismatch, 0 unknown
+```
+
+| Row | Page pattern | Expected |
+|---|---|---|
+| `MUG-SAND` | single Product + Offer | match |
+| `TRAY-PALM` | feed says 79.00 AED, page says 89.00 AED | **mismatch** (deliberate): `price: feed 79.00, page 89.00` |
+| `LAMP-DUNE` | on sale: feed `sale_price` 199.00 AED equals the page offer | match |
+| `CANDLE-OUD` | out of stock on page and in feed | match |
+| `CUSHION-FALAJ-S` | ProductGroup variant `?variant=1`, 70.00 AED | match |
+| `CUSHION-FALAJ-L` | ProductGroup variant `?variant=2`, 95.00 AED | match |
+
+The demo pages live in [`docs/demo`](docs/demo). A test reads them from disk and checks these exact
+verdicts, so the demo stays correct in CI.
+
 ## Sample output
 
 Real output of the command above:

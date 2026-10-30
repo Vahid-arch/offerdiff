@@ -1,0 +1,14 @@
+body { font-family: system-ui, sans-serif; max-width: 44rem; margin: 0 auto; padding: 1rem; color: #222; background: #fff; }
+header, footer { border-bottom: 1px solid #ddd; padding: .5rem 0; }
+footer { border-top: 1px solid #ddd; border-bottom: 0; margin-top: 2rem; font-size: .9rem; color: #555; }
+a { color: #0a58ca; }
+.price { font-size: 1.4rem; font-weight: 600; }
+.was { text-decoration: line-through; color: #777; font-weight: 400; margin-right: .5rem; }
+.stock { color: #1a7f37; }
+.stock.out { color: #b42318; }
+.notice { background: #fff8e1; border: 1px solid #f0d58c; padding: .75rem; border-radius: .25rem; }
+@media (prefers-color-scheme: dark) {
+  body { color: #eee; background: #121212; }
+  a { color: #8ab4f8; }
+  .notice { background: #2b2500; border-color: #6b5900; }
+}

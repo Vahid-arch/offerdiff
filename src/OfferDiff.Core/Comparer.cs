@@ -9,7 +9,7 @@ public record ComparisonResult(string Id, Verdict Verdict, List<string> Details,
 
 public static class Comparer
 {
-    // getHtml is FixturePageSource.GetHtml today; an HTTP fetcher with the same shape can replace it.
+    // getHtml is FixturePageSource.GetHtml (local files) or HttpPageSource.GetHtml (live pages).
     public static ComparisonResult Compare(FeedItem item, Func<string, string> getHtml)
     {
         string html;

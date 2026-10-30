@@ -106,7 +106,8 @@ The feed price used is `sale_price` when present, else `price`. Prices are compa
 
 ## Limitations
 
-- Local fixture pages only: no network access yet. Only URLs on `example-store.test` are accepted.
+- The CLI reads local fixture pages only: only URLs on `example-store.test` are accepted. Live
+  fetching exists in the library (`HttpPageSource`) but is not yet available from the CLI.
 - JSON-LD only: no microdata or RDFa.
 - `@type` must be the plain name (`"Product"`); prefixed forms such as `"schema:Product"` or
   `"https://schema.org/Product"` are not recognized.

@@ -70,6 +70,38 @@ public class CliTests : IDisposable
         var text = output.ToString();
         Assert.Contains("KETTLE-RED     mismatch  url           price: feed 34.50, page 39.00", text);
         Assert.EndsWith("8 rows: 4 match, 2 mismatch, 2 unknown" + Environment.NewLine, text);
-        Assert.Empty(errors.ToString());
+        Assert.Empty(errors.ToString()); // fixture mode prints no progress
+    }
+
+    [Fact]
+    public void Bad_option_exits_2_with_message_and_usage()
+    {
+        Assert.Equal(2, Run(Samples.Feed, "--delay", "2"));
+
+        var text = errors.ToString();
+        Assert.Contains("error: --delay only works with --live", text);
+        Assert.Contains("--allow-private-hosts", text); // full usage listing all options
+        Assert.Empty(output.ToString());
+    }
+
+    [Fact]
+    public void Live_run_uses_http_with_progress_on_stderr()
+    {
+        // 127.0.0.1 is stopped by the private-address guard before any connection, so this never touches the network
+        var csv = Path.Combine(Path.GetTempPath(), $"offerdiff-{Guid.NewGuid():N}.csv");
+        File.WriteAllText(csv, "id,title,link,price,sale_price,availability\nA1,Mug,http://127.0.0.1:9/products/a,12.99 USD,,in_stock\n");
+        try
+        {
+            Assert.Equal(0, Run(csv, "--live"));
+
+            Assert.Equal("checking 1/1: A1" + Environment.NewLine, errors.ToString());
+            var table = output.ToString();
+            Assert.Contains("A1  unknown   -             page could not be loaded: blocked private address 127.0.0.1", table);
+            Assert.DoesNotContain("checking", table);
+        }
+        finally
+        {
+            File.Delete(csv);
+        }
     }
 }

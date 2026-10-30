@@ -30,12 +30,37 @@ Run the tests with `dotnet test`.
 ### Options
 
 ```
-OfferDiff.Cli <feed.csv> [--pages <folder>]
+usage: OfferDiff.Cli <feed.csv> [--pages <folder>]
+       OfferDiff.Cli <feed.csv> --live [--delay <seconds>] [--allow-private-hosts]
+
+  --pages <folder>         fixture mode: folder with local pages (default: "pages" next to the CSV)
+  --live                   fetch the real product pages from the feed's links
+  --delay <seconds>        live mode: minimum gap between requests to one site (default 1, at least 0.5)
+  --allow-private-hosts    live mode: allow local network addresses, for your own staging server
 ```
 
-`--pages` is the folder with the local product pages. Default: a `pages` folder next to the CSV file.
-A link such as `https://example-store.test/products/blue-mug?variant=2` is read from
+Without `--live`, the tool runs in **fixture mode**: a link such as
+`https://example-store.test/products/blue-mug?variant=2` is read from
 `<pages>\products\blue-mug.html` (the query is ignored when choosing the file).
+
+## Checking a live store
+
+```powershell
+dotnet run --project src\OfferDiff.Cli -- my-feed.csv --live
+```
+
+With `--live`, OfferDiff downloads each product page from the link in the feed and checks it the same
+way. It is careful with the sites it visits:
+
+- at most 1 request per second per site (change with `--delay`), and it honours `Retry-After` on 429/503
+- respects `robots.txt` (RFC 9309): disallowed pages are not fetched and show as **unknown**
+- blocks private and internal addresses (see [Security](#security)) unless you pass `--allow-private-hosts`
+- gives up on a page after 15 seconds, and on pages larger than 5 MB
+
+Progress (`checking 12/240: <id>`) goes to stderr, so the table on stdout stays clean for scripts:
+`dotnet run --project src\OfferDiff.Cli -- my-feed.csv --live > report.txt`.
+
+> **Only check stores you own or have permission to check.**
 
 ## Sample output
 
@@ -106,12 +131,13 @@ The feed price used is `sale_price` when present, else `price`. Prices are compa
 
 ## Limitations
 
-- The CLI reads local fixture pages only: only URLs on `example-store.test` are accepted. Live
-  fetching exists in the library (`HttpPageSource`) but is not yet available from the CLI.
+- Fixture mode (the default) accepts only URLs on `example-store.test`; use `--live` for real stores.
+- Live mode checks pages one at a time, so a large feed takes at least one second per page on the same site.
 - JSON-LD only: no microdata or RDFa.
 - `@type` must be the plain name (`"Product"`); prefixed forms such as `"schema:Product"` or
   `"https://schema.org/Product"` are not recognized.
-- No JavaScript rendering: structured data added by scripts is not seen.
+- No JavaScript rendering, also in live mode: the page is read as the server sends it, so structured
+  data added by scripts is not seen.
 - No `priceSpecification`: only `price`, and `lowPrice`/`highPrice` on `AggregateOffer`
   (a price range gives unknown).
 - Availability is limited to `InStock`, `OutOfStock`, `PreOrder` and `BackOrder`.

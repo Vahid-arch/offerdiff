@@ -1,24 +1,29 @@
-﻿using OfferDiff.Core;
+﻿using OfferDiff.Cli;
+using OfferDiff.Core;
 
-const string Usage = "usage: OfferDiff.Cli <feed.csv> [--pages <folder>]";
+var (options, error) = CliOptions.Parse(args);
+if (options == null) return Fail(error!);
+if (!File.Exists(options.Csv)) return Fail($"feed file not found: {options.Csv}");
 
-string? csv = null, pages = null;
-for (var i = 0; i < args.Length; i++)
+Func<string, string> getHtml;
+Action<int, int, string>? progress = null;
+if (options.Live)
 {
-    if (args[i] == "--pages" && i + 1 < args.Length) pages = args[++i];
-    else if (csv == null && !args[i].StartsWith("--")) csv = args[i];
-    else return Fail($"unexpected argument '{args[i]}'");
+    getHtml = HttpPageSource.Create(options.AllowPrivateHosts, options.Delay).GetHtml;
+    // progress goes to stderr, so stdout stays a clean table for scripts
+    progress = (n, total, id) => Console.Error.WriteLine($"checking {n}/{total}: {id}");
 }
-
-if (csv == null) return Fail("missing feed CSV path");
-if (!File.Exists(csv)) return Fail($"feed file not found: {csv}");
-pages ??= FeedCheck.DefaultPagesFolder(csv);
-if (!Directory.Exists(pages)) return Fail($"pages folder not found: {pages}");
+else
+{
+    var pages = options.Pages ?? FeedCheck.DefaultPagesFolder(options.Csv);
+    if (!Directory.Exists(pages)) return Fail($"pages folder not found: {pages}");
+    getHtml = new FixturePageSource(pages).GetHtml;
+}
 
 CheckReport report;
 try
 {
-    report = FeedCheck.Run(csv, pages);
+    report = FeedCheck.Run(options.Csv, getHtml, progress);
 }
 catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
 {
@@ -26,8 +31,8 @@ catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
     return Fail($"cannot read feed file: {ex.Message}");
 }
 
-foreach (var error in report.FeedErrors)
-    Console.WriteLine($"feed row {error.Row}: {error.Message}");
+foreach (var feedError in report.FeedErrors)
+    Console.WriteLine($"feed row {feedError.Row}: {feedError.Message}");
 if (report.FeedErrors.Count > 0) Console.WriteLine();
 
 var idWidth = Math.Max("ID".Length, report.Results.Select(r => r.Id.Length).DefaultIfEmpty(0).Max());
@@ -50,6 +55,6 @@ return report.ExitCode;
 static int Fail(string message)
 {
     Console.Error.WriteLine($"error: {message}");
-    Console.Error.WriteLine(Usage);
+    Console.Error.WriteLine(CliOptions.Usage);
     return 2;
 }

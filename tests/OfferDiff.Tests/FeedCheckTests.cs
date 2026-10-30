@@ -22,6 +22,32 @@ public class FeedCheckTests : IDisposable
     }
 
     [Fact]
+    public void Custom_page_loader_gives_the_same_verdicts_as_fixture_mode()
+    {
+        // stands in for a live fetcher: maps each URL to the fixture file by hand, without FixturePageSource
+        string FakeGetHtml(string url) =>
+            File.ReadAllText(Path.Combine(Samples.Pages, "products", new Uri(url).AbsolutePath.Split('/')[^1] + ".html"));
+
+        var fixture = FeedCheck.Run(Samples.Feed);
+        var custom = FeedCheck.Run(Samples.Feed, FakeGetHtml);
+
+        Assert.Equal(fixture.Results.Select(r => (r.Id, r.Verdict, r.MatchedBy)), custom.Results.Select(r => (r.Id, r.Verdict, r.MatchedBy)));
+        Assert.Equal(fixture.Summary, custom.Summary);
+    }
+
+    [Fact]
+    public void Progress_is_reported_before_each_row()
+    {
+        var calls = new List<string>();
+
+        FeedCheck.Run(Samples.Feed, new FixturePageSource(Samples.Pages).GetHtml, (n, total, id) => calls.Add($"{n}/{total}: {id}"));
+
+        Assert.Equal(8, calls.Count);
+        Assert.Equal("1/8: MUG-BLUE", calls[0]);
+        Assert.Equal("8/8: LADLE-STEEL", calls[^1]);
+    }
+
+    [Fact]
     public void Unknown_and_bad_rows_alone_give_exit_code_0()
     {
         File.WriteAllText(csv, """

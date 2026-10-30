@@ -19,10 +19,21 @@ public static class FeedCheck
     public static string DefaultPagesFolder(string csvPath) =>
         Path.Combine(Path.GetDirectoryName(Path.GetFullPath(csvPath))!, "pages");
 
-    public static CheckReport Run(string csvPath, string? pagesFolder = null)
+    // Fixture mode: pages come from local files.
+    public static CheckReport Run(string csvPath, string? pagesFolder = null) =>
+        Run(csvPath, new FixturePageSource(pagesFolder ?? DefaultPagesFolder(csvPath)).GetHtml);
+
+    // getHtml loads one page by URL (FixturePageSource.GetHtml or HttpPageSource.GetHtml).
+    // progress, if given, is called before each row with (row number, total rows, id).
+    public static CheckReport Run(string csvPath, Func<string, string> getHtml, Action<int, int, string>? progress = null)
     {
         var feed = FeedReader.Read(csvPath);
-        var pages = new FixturePageSource(pagesFolder ?? DefaultPagesFolder(csvPath));
-        return new CheckReport(feed.Errors, [.. feed.Items.Select(item => Comparer.Compare(item, pages.GetHtml))]);
+        var results = new List<ComparisonResult>();
+        foreach (var item in feed.Items)
+        {
+            progress?.Invoke(results.Count + 1, feed.Items.Count, item.Id);
+            results.Add(Comparer.Compare(item, getHtml));
+        }
+        return new CheckReport(feed.Errors, results);
     }
 }

@@ -8,13 +8,19 @@ namespace OfferDiff.Core;
 // Every failure is an ArgumentException (bad URL) or IOException (fetch failed), which Comparer turns into "unknown".
 // shortcut: synchronous and sequential, fine for small feeds; make async and parallel per
 // host when feeds get large
-public class HttpPageSource(HttpClient client)
+public class HttpPageSource(HttpClient client, HostThrottle? throttle = null)
 {
     public const string UserAgent = "OfferDiff/0.2 (+https://github.com/Vahid-arch/offerdiff)";
     public const int MaxBytes = 5 * 1024 * 1024;
+    static readonly TimeSpan DefaultMinDelay = TimeSpan.FromSeconds(1);
+    static readonly TimeSpan MaxRetryAfter = TimeSpan.FromSeconds(30);
+    static readonly TimeSpan DefaultRetryAfter = TimeSpan.FromSeconds(5);
+
+    readonly HostThrottle throttle = throttle ?? new(DefaultMinDelay);
 
     // allowPrivateHosts: true is for checking your own staging server on the local network.
-    public static HttpPageSource Create(bool allowPrivateHosts = false) => new(new HttpClient(new SocketsHttpHandler
+    // minDelay: shortest gap between two requests to the same host (default 1 second).
+    public static HttpPageSource Create(bool allowPrivateHosts = false, TimeSpan? minDelay = null) => new(new HttpClient(new SocketsHttpHandler
     {
         MaxAutomaticRedirections = 5,
         AutomaticDecompression = DecompressionMethods.All,
@@ -24,13 +30,30 @@ public class HttpPageSource(HttpClient client)
     })
     {
         Timeout = TimeSpan.FromSeconds(15),
-    });
+    }, new HostThrottle(minDelay ?? DefaultMinDelay));
 
     public string GetHtml(string url)
     {
         if (!Uri.TryCreate(url, UriKind.Absolute, out var uri) || (uri.Scheme != Uri.UriSchemeHttp && uri.Scheme != Uri.UriSchemeHttps))
             throw new ArgumentException($"not an http(s) URL: {url}");
 
+        for (var attempt = 1; ; attempt++)
+        {
+            throttle.Wait(uri.Host);
+            try
+            {
+                return Fetch(uri);
+            }
+            // 429/503 with a short Retry-After: wait and retry once; otherwise the IOException ends the row as unknown
+            catch (RateLimitedException limited) when (attempt == 1 && limited.RetryAfter <= MaxRetryAfter)
+            {
+                throttle.Sleep(limited.RetryAfter);
+            }
+        }
+    }
+
+    string Fetch(Uri uri)
+    {
         try
         {
             // No synchronization context in a console app, so blocking on the task cannot deadlock.
@@ -58,6 +81,8 @@ public class HttpPageSource(HttpClient client)
         request.Headers.UserAgent.ParseAdd(UserAgent);
 
         using var response = await client.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, timeout.Token);
+        if (response.StatusCode is HttpStatusCode.TooManyRequests or HttpStatusCode.ServiceUnavailable)
+            throw new RateLimitedException((int)response.StatusCode, RetryAfter(response));
         if (!response.IsSuccessStatusCode)
             throw new IOException($"HTTP {(int)response.StatusCode} {response.ReasonPhrase}");
 
@@ -83,4 +108,19 @@ public class HttpPageSource(HttpClient client)
     }
 
     static IOException TooLarge() => new($"page larger than {MaxBytes / 1024 / 1024} MB");
+
+    // Retry-After is either seconds ("2") or an HTTP date; missing or unparseable means the default.
+    TimeSpan RetryAfter(HttpResponseMessage response)
+    {
+        var header = response.Headers.RetryAfter;
+        var wait = header?.Delta ?? (header?.Date - throttle.Now) ?? DefaultRetryAfter;
+        return wait < TimeSpan.Zero ? TimeSpan.Zero : wait;
+    }
+
+    sealed class RateLimitedException(int status, TimeSpan retryAfter)
+        : IOException(string.Create(CultureInfo.InvariantCulture,
+            $"rate limited by site (HTTP {status}), retry after {Math.Ceiling(retryAfter.TotalSeconds)}s"))
+    {
+        public TimeSpan RetryAfter => retryAfter;
+    }
 }

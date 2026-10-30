@@ -130,6 +130,8 @@ multicast, carrier-grade NAT (100.64/10) and their IPv4-mapped IPv6 forms. A blo
 To check your own staging server on the local network, use `HttpPageSource.Create(allowPrivateHosts: true)`.
 The system proxy is not used, because a proxy would hide the real target address from this check.
 
+Polite by default: at most 1 request per second per site; honours Retry-After on 429/503 (waits up to 30s, retries once).
+
 ## Sample data
 
 All sample data is synthetic. The store `example-store.test` and its products are invented;

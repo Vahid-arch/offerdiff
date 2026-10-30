@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Net;
+using System.Net.Http.Headers;
 using System.Text;
 using OfferDiff.Core;
 
@@ -13,10 +14,12 @@ public class HttpPageSourceTests
     class FakeHandler(Func<CancellationToken, Task<HttpResponseMessage>> respond) : HttpMessageHandler
     {
         public HttpRequestMessage? LastRequest;
+        public int Calls;
 
         protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken token)
         {
             LastRequest = request;
+            Calls++;
             return respond(token);
         }
     }
@@ -135,6 +138,97 @@ public class HttpPageSourceTests
         source.GetHtml(Url);
 
         Assert.Equal(HttpPageSource.UserAgent, handler.LastRequest!.Headers.UserAgent.ToString());
+    }
+
+    // Answers with the given responses in order, on a fake clock so throttling and Retry-After never really wait.
+    static (HttpPageSource Source, FakeHandler Handler, FakeClock Clock) Sequence(params HttpResponseMessage[] responses)
+    {
+        var queue = new Queue<HttpResponseMessage>(responses);
+        var handler = new FakeHandler(_ => Task.FromResult(queue.Dequeue()));
+        var clock = new FakeClock();
+        return (new HttpPageSource(new HttpClient(handler), clock.Throttle()), handler, clock);
+    }
+
+    static HttpResponseMessage Ok() => new(HttpStatusCode.OK) { Content = Html("<html>ok</html>") };
+
+    static HttpResponseMessage Limited(HttpStatusCode status, RetryConditionHeaderValue? retryAfter = null)
+    {
+        var response = new HttpResponseMessage(status);
+        response.Headers.RetryAfter = retryAfter;
+        return response;
+    }
+
+    [Fact]
+    public void Two_requests_to_same_host_are_one_second_apart()
+    {
+        var (source, _, clock) = Sequence(Ok(), Ok());
+
+        source.GetHtml(Url);
+        source.GetHtml(Url + "?variant=2");
+
+        Assert.Equal([TimeSpan.FromSeconds(1)], clock.Sleeps);
+    }
+
+    [Fact]
+    public void Requests_to_different_hosts_do_not_wait()
+    {
+        var (source, _, clock) = Sequence(Ok(), Ok());
+
+        source.GetHtml(Url);
+        source.GetHtml("https://other-store.test/products/cup");
+
+        Assert.Empty(clock.Sleeps);
+    }
+
+    [Fact]
+    public void Retry_after_seconds_waits_and_retries_once()
+    {
+        var (source, handler, clock) = Sequence(Limited(HttpStatusCode.TooManyRequests, new(TimeSpan.FromSeconds(2))), Ok());
+
+        Assert.Equal("<html>ok</html>", source.GetHtml(Url));
+        Assert.Equal([TimeSpan.FromSeconds(2)], clock.Sleeps);
+        Assert.Equal(2, handler.Calls);
+    }
+
+    [Fact]
+    public void Retry_after_http_date_waits_until_that_time()
+    {
+        var clock = new FakeClock();
+        var responses = new Queue<HttpResponseMessage>([Limited(HttpStatusCode.TooManyRequests, new(clock.Now.AddSeconds(10))), Ok()]);
+        var source = new HttpPageSource(new HttpClient(new FakeHandler(_ => Task.FromResult(responses.Dequeue()))), clock.Throttle());
+
+        Assert.Equal("<html>ok</html>", source.GetHtml(Url));
+        Assert.Equal([TimeSpan.FromSeconds(10)], clock.Sleeps);
+    }
+
+    [Fact]
+    public void Long_retry_after_is_not_retried()
+    {
+        var (source, handler, clock) = Sequence(Limited(HttpStatusCode.TooManyRequests, new(TimeSpan.FromSeconds(120))));
+
+        Assert.Equal("rate limited by site (HTTP 429), retry after 120s", Assert.ThrowsAny<IOException>(() => source.GetHtml(Url)).Message);
+        Assert.Equal(1, handler.Calls);
+        Assert.Empty(clock.Sleeps);
+    }
+
+    [Fact]
+    public void Second_503_gives_up_after_exactly_one_retry()
+    {
+        var (source, handler, clock) = Sequence(Limited(HttpStatusCode.ServiceUnavailable), Limited(HttpStatusCode.ServiceUnavailable));
+
+        Assert.Equal("rate limited by site (HTTP 503), retry after 5s", Assert.ThrowsAny<IOException>(() => source.GetHtml(Url)).Message);
+        Assert.Equal(2, handler.Calls);
+        Assert.Equal([TimeSpan.FromSeconds(5)], clock.Sleeps);
+    }
+
+    [Fact]
+    public void Missing_retry_after_waits_5_seconds_and_retries()
+    {
+        var (source, handler, clock) = Sequence(Limited(HttpStatusCode.TooManyRequests), Ok());
+
+        Assert.Equal("<html>ok</html>", source.GetHtml(Url));
+        Assert.Equal([TimeSpan.FromSeconds(5)], clock.Sleeps);
+        Assert.Equal(2, handler.Calls);
     }
 
     static readonly FeedItem BlueMug = new(2, "MUG-BLUE", "Blue Mug", Url, new Price(12.99m, "USD"), null, "in_stock");

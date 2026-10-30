@@ -132,6 +132,8 @@ The system proxy is not used, because a proxy would hide the real target address
 
 Polite by default: at most 1 request per second per site; honours Retry-After on 429/503 (waits up to 30s, retries once).
 
+Respects robots.txt (RFC 9309) by default.
+
 ## Sample data
 
 All sample data is synthetic. The store `example-store.test` and its products are invented;

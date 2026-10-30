@@ -6,6 +6,7 @@ using OfferDiff.Core;
 
 namespace OfferDiff.Tests;
 
+// Page fetching only: robots.txt is switched off here and covered in HttpPageSourceRobotsTests.
 public class HttpPageSourceTests
 {
     const string Url = "https://example-store.test/products/blue-mug";
@@ -43,7 +44,7 @@ public class HttpPageSourceTests
     static (HttpPageSource Source, FakeHandler Handler) Fake(HttpContent content, HttpStatusCode status = HttpStatusCode.OK)
     {
         var handler = new FakeHandler(_ => Task.FromResult(new HttpResponseMessage(status) { Content = content }));
-        return (new HttpPageSource(new HttpClient(handler)), handler);
+        return (new HttpPageSource(new HttpClient(handler), respectRobots: false), handler);
     }
 
     static HttpContent Html(string body) => new StringContent(body, Encoding.UTF8, "text/html");
@@ -74,7 +75,7 @@ public class HttpPageSourceTests
             await Task.Delay(Timeout.Infinite, token);
             throw new UnreachableException();
         });
-        var source = new HttpPageSource(new HttpClient(handler) { Timeout = TimeSpan.FromMilliseconds(100) });
+        var source = new HttpPageSource(new HttpClient(handler) { Timeout = TimeSpan.FromMilliseconds(100) }, respectRobots: false);
 
         Assert.Equal("timed out after 0.1s", Assert.Throws<IOException>(() => source.GetHtml(Url)).Message);
     }
@@ -83,7 +84,7 @@ public class HttpPageSourceTests
     public void Network_error_is_IOException_with_short_message()
     {
         var handler = new FakeHandler(_ => throw new HttpRequestException("No such host is known."));
-        var source = new HttpPageSource(new HttpClient(handler));
+        var source = new HttpPageSource(new HttpClient(handler), respectRobots: false);
 
         Assert.Equal("No such host is known.", Assert.Throws<IOException>(() => source.GetHtml(Url)).Message);
     }
@@ -146,7 +147,7 @@ public class HttpPageSourceTests
         var queue = new Queue<HttpResponseMessage>(responses);
         var handler = new FakeHandler(_ => Task.FromResult(queue.Dequeue()));
         var clock = new FakeClock();
-        return (new HttpPageSource(new HttpClient(handler), clock.Throttle()), handler, clock);
+        return (new HttpPageSource(new HttpClient(handler), clock.Throttle(), respectRobots: false), handler, clock);
     }
 
     static HttpResponseMessage Ok() => new(HttpStatusCode.OK) { Content = Html("<html>ok</html>") };
@@ -195,7 +196,7 @@ public class HttpPageSourceTests
     {
         var clock = new FakeClock();
         var responses = new Queue<HttpResponseMessage>([Limited(HttpStatusCode.TooManyRequests, new(clock.Now.AddSeconds(10))), Ok()]);
-        var source = new HttpPageSource(new HttpClient(new FakeHandler(_ => Task.FromResult(responses.Dequeue()))), clock.Throttle());
+        var source = new HttpPageSource(new HttpClient(new FakeHandler(_ => Task.FromResult(responses.Dequeue()))), clock.Throttle(), respectRobots: false);
 
         Assert.Equal("<html>ok</html>", source.GetHtml(Url));
         Assert.Equal([TimeSpan.FromSeconds(10)], clock.Sleeps);

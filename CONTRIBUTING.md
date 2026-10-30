@@ -25,7 +25,8 @@ The last command checks the sample feed and should end with `8 rows: 4 match, 2 
 
 ## Rules for changes
 
-- **No network access** in code or tests. Pages come from local fixture files.
+- **Tests must never use the real network** (use a fake `HttpMessageHandler`). Live fetching
+  lives only in `HttpPageSource`.
 - **Synthetic data only.** Never commit real store names, URLs, prices or customer data.
   New fixtures use `example-store.test` and invented products.
 - **New logic needs a test** that fails when the logic breaks.

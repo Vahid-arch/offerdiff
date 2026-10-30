@@ -6,8 +6,8 @@ namespace OfferDiff.Cli;
 public record CliOptions(string Csv, string? Pages, bool Live, bool AllowPrivateHosts, TimeSpan Delay)
 {
     public const string Usage = """
-        usage: OfferDiff.Cli <feed.csv> [--pages <folder>]
-               OfferDiff.Cli <feed.csv> --live [--delay <seconds>] [--allow-private-hosts]
+        usage: offerdiff <feed.csv> [--pages <folder>]
+               offerdiff <feed.csv> --live [--delay <seconds>] [--allow-private-hosts]
 
           --pages <folder>         fixture mode: folder with local pages (default: "pages" next to the CSV)
           --live                   fetch the real product pages from the feed's links

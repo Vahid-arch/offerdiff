@@ -21,7 +21,7 @@ public class CliTests : IDisposable
     }
 
     // Top-level statements compile to an internal Program class, so reach Main through the assembly's entry point.
-    static int Run(params string[] args) => (int)Assembly.Load("OfferDiff.Cli").EntryPoint!.Invoke(null, [args])!;
+    static int Run(params string[] args) => (int)Assembly.Load("offerdiff").EntryPoint!.Invoke(null, [args])!;
 
     [Fact]
     public void No_argument_exits_2()

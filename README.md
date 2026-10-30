@@ -14,6 +14,51 @@ the product can be disapproved with **"Mismatched value (page crawl)"**. See Goo
 OfferDiff finds those differences before Google does, and shows the evidence for each row:
 the feed value, the page value and the reason.
 
+## Download
+
+Ready-to-run binaries are on the [Releases page](https://github.com/Vahid-arch/offerdiff/releases).
+They are self-contained single files, so you do **not** need .NET installed. Releases are marked as
+pre-releases while OfferDiff is at 0.x.
+
+| File | For |
+|---|---|
+| `offerdiff-<version>-win-x64.zip` | Windows (64-bit) |
+| `offerdiff-<version>-linux-x64.zip` | Linux (64-bit, glibc) |
+| `offerdiff-<version>-osx-x64.zip` | macOS on Intel |
+| `offerdiff-<version>-osx-arm64.zip` | macOS on Apple silicon (M1 and later) |
+| `SHA256SUMS.txt` | checksums of the zips |
+
+Each zip holds the `offerdiff` program, `LICENSE` and this README. To check a download, compare
+its SHA-256 with the line in `SHA256SUMS.txt`:
+
+```powershell
+Get-FileHash .\offerdiff-0.2.0-win-x64.zip -Algorithm SHA256   # Windows
+```
+```sh
+sha256sum -c SHA256SUMS.txt --ignore-missing                   # Linux
+shasum -a 256 -c SHA256SUMS.txt --ignore-missing               # macOS
+```
+
+Run it from the folder you unzipped (`my-feed.csv` is your own feed):
+
+```powershell
+.\offerdiff.exe my-feed.csv --live                            # Windows
+```
+```sh
+./offerdiff my-feed.csv --live                                 # Linux and macOS
+```
+
+On Linux or macOS, if you get "permission denied", run `chmod +x offerdiff` once. On macOS the
+binary is not notarized, so Gatekeeper may block it the first time; remove the download quarantine
+flag with:
+
+```sh
+xattr -d com.apple.quarantine offerdiff
+```
+
+The zips do not include the sample feeds. To try the demo store, download
+[`samples/live-demo-feed.csv`](samples/live-demo-feed.csv) and run `offerdiff live-demo-feed.csv --live`.
+
 ## Quick start (Windows)
 
 1. Install the [.NET 10 SDK](https://dotnet.microsoft.com/download/dotnet/10.0).
@@ -30,8 +75,8 @@ Run the tests with `dotnet test`.
 ### Options
 
 ```
-usage: OfferDiff.Cli <feed.csv> [--pages <folder>]
-       OfferDiff.Cli <feed.csv> --live [--delay <seconds>] [--allow-private-hosts]
+usage: offerdiff <feed.csv> [--pages <folder>]
+       offerdiff <feed.csv> --live [--delay <seconds>] [--allow-private-hosts]
 
   --pages <folder>         fixture mode: folder with local pages (default: "pages" next to the CSV)
   --live                   fetch the real product pages from the feed's links

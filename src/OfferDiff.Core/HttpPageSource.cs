@@ -10,7 +10,7 @@ namespace OfferDiff.Core;
 // host when feeds get large
 public class HttpPageSource(HttpClient client, HostThrottle? throttle = null, bool respectRobots = true)
 {
-    public const string UserAgent = "OfferDiff/0.2 (+https://github.com/Vahid-arch/offerdiff)";
+    public const string UserAgent = "OfferDiff/0.2.0 (+https://github.com/Vahid-arch/offerdiff)";
     public const string ProductToken = "OfferDiff";
     public const int MaxBytes = 5 * 1024 * 1024;
     static readonly TimeSpan DefaultMinDelay = TimeSpan.FromSeconds(1);

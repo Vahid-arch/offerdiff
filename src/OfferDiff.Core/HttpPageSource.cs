@@ -13,10 +13,14 @@ public class HttpPageSource(HttpClient client)
     public const string UserAgent = "OfferDiff/0.2 (+https://github.com/Vahid-arch/offerdiff)";
     public const int MaxBytes = 5 * 1024 * 1024;
 
-    public static HttpPageSource Create() => new(new HttpClient(new SocketsHttpHandler
+    // allowPrivateHosts: true is for checking your own staging server on the local network.
+    public static HttpPageSource Create(bool allowPrivateHosts = false) => new(new HttpClient(new SocketsHttpHandler
     {
         MaxAutomaticRedirections = 5,
         AutomaticDecompression = DecompressionMethods.All,
+        ConnectCallback = (context, token) => NetworkGuard.ConnectAsync(context.DnsEndPoint, allowPrivateHosts, token),
+        // through a proxy the callback would only see the proxy's address, so the guard would be bypassed
+        UseProxy = false,
     })
     {
         Timeout = TimeSpan.FromSeconds(15),
@@ -35,6 +39,10 @@ public class HttpPageSource(HttpClient client)
         catch (OperationCanceledException)
         {
             throw new IOException(string.Create(CultureInfo.InvariantCulture, $"timed out after {client.Timeout.TotalSeconds:0.##}s"));
+        }
+        catch (HttpRequestException ex) when (ex.InnerException is BlockedAddressException blocked)
+        {
+            throw blocked; // keep "blocked private address <ip>" without HttpClient's "(host:port)" suffix
         }
         catch (HttpRequestException ex)
         {

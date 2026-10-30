@@ -118,6 +118,18 @@ The feed price used is `sale_price` when present, else `price`. Prices are compa
 - CSV quoted fields cannot contain line breaks.
 - JSON-LD blocks are found with a simple regex, not a full HTML parser.
 
+## Security
+
+Live fetching (`HttpPageSource`) blocks private and internal addresses by default, because the feed
+decides which URLs are requested. Every resolved IP is checked before connecting, including on
+redirects. Blocked: loopback, private (10/8, 172.16/12, 192.168/16), link-local (169.254/16,
+fe80::/10, including cloud metadata at 169.254.169.254), unique-local IPv6 (fc00::/7), unspecified,
+multicast, carrier-grade NAT (100.64/10) and their IPv4-mapped IPv6 forms. A blocked link gives
+**unknown** with `blocked private address <ip>`.
+
+To check your own staging server on the local network, use `HttpPageSource.Create(allowPrivateHosts: true)`.
+The system proxy is not used, because a proxy would hide the real target address from this check.
+
 ## Sample data
 
 All sample data is synthetic. The store `example-store.test` and its products are invented;

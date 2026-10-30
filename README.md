@@ -129,6 +129,30 @@ The feed price used is `sale_price` when present, else `price`. Prices are compa
 | 1 | At least one mismatch |
 | 2 | Error: no argument, feed file not found or unreadable (for example locked by Excel), pages folder not found, or no feed row could be read (for example `;` instead of `,`, missing columns, or an empty feed) |
 
+## JavaScript-rendered pages
+
+OfferDiff reads the HTML the server sends. It does not run JavaScript. Many stores built as
+single-page apps (Angular, React, Vue, Next.js and similar) send an almost empty page and add the
+product JSON-LD later in the browser. OfferDiff then finds no structured data, and the row is
+**unknown**. When the page looks like such an app, the details add:
+
+```
+structured data may be added by JavaScript; OfferDiff reads server HTML only (see README: JavaScript-rendered pages)
+```
+
+This matters for Merchant Center too. Google's guide
+[Generate structured data with JavaScript](https://developers.google.com/search/docs/appearance/structured-data/generate-structured-data-with-javascript)
+warns: *"Be aware that dynamically-generated markup can make Shopping crawls less frequent and less
+reliable"*, which is a problem for fast-changing values such as price and availability.
+
+**Recommendation:** put the product JSON-LD in the server HTML, through server-side rendering (SSR)
+or prerendering of product pages. Then Google and OfferDiff both see the same price and availability
+as the feed.
+
+The hint is a guess from signs such as `<app-root>`, `ng-version`, `<div id="root">`,
+`<div id="app">`, `__NEXT_DATA__`, `data-beasties-container`, or a page body with almost no text.
+It never changes the verdict.
+
 ## Limitations
 
 - Fixture mode (the default) accepts only URLs on `example-store.test`; use `--live` for real stores.
@@ -136,7 +160,7 @@ The feed price used is `sale_price` when present, else `price`. Prices are compa
 - JSON-LD only: no microdata or RDFa.
 - `@type` must be the plain name (`"Product"`); prefixed forms such as `"schema:Product"` or
   `"https://schema.org/Product"` are not recognized.
-- No JavaScript rendering, also in live mode: the page is read as the server sends it, so structured
+- No JavaScript rendering, also in live mode (see [JavaScript-rendered pages](#javascript-rendered-pages)): the page is read as the server sends it, so structured
   data added by scripts is not seen.
 - No `priceSpecification`: only `price`, and `lowPrice`/`highPrice` on `AggregateOffer`
   (a price range gives unknown).

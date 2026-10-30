@@ -35,7 +35,7 @@ Pre-release. OfferDiff can now check live stores.
 
 ## [0.1.0]
 
-Prototype (not tagged or released as binaries).
+Prototype. Tagged as `v0.1.0`, before the release workflow existed, so it has no release binaries.
 
 ### Added
 

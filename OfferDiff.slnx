@@ -2,8 +2,10 @@
   <Folder Name="/src/">
     <Project Path="src/OfferDiff.Cli/OfferDiff.Cli.csproj" />
     <Project Path="src/OfferDiff.Core/OfferDiff.Core.csproj" />
+    <Project Path="src/OfferDiff.Render/OfferDiff.Render.csproj" />
   </Folder>
   <Folder Name="/tests/">
+    <Project Path="tests/OfferDiff.Render.Tests/OfferDiff.Render.Tests.csproj" />
     <Project Path="tests/OfferDiff.Tests/OfferDiff.Tests.csproj" />
   </Folder>
 </Solution>

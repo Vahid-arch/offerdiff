@@ -25,24 +25,23 @@ public class HttpPageSource(HttpClient client, HostThrottle? throttle = null, bo
     // minDelay: shortest gap between two requests to the same host (default 1 second).
     // respectRobots: false skips robots.txt, only for sites you own.
     public static HttpPageSource Create(bool allowPrivateHosts = false, TimeSpan? minDelay = null, bool respectRobots = true) =>
-        new(new HttpClient(new SocketsHttpHandler
-        {
-            MaxAutomaticRedirections = 5,
-            AutomaticDecompression = DecompressionMethods.All,
-            ConnectCallback = (context, token) => NetworkGuard.ConnectAsync(context.DnsEndPoint, allowPrivateHosts, token),
-            // through a proxy the callback would only see the proxy's address, so the guard would be bypassed
-            UseProxy = false,
-        })
-        {
-            Timeout = TimeSpan.FromSeconds(15),
-        }, new HostThrottle(minDelay ?? DefaultMinDelay), respectRobots);
+        new(CreateClient(allowPrivateHosts), new HostThrottle(minDelay ?? DefaultMinDelay), respectRobots);
+
+    public static HttpClient CreateClient(bool allowPrivateHosts) => new(new SocketsHttpHandler
+    {
+        MaxAutomaticRedirections = 5,
+        AutomaticDecompression = DecompressionMethods.All,
+        ConnectCallback = (context, token) => NetworkGuard.ConnectAsync(context.DnsEndPoint, allowPrivateHosts, token),
+        // through a proxy the callback would only see the proxy's address, so the guard would be bypassed
+        UseProxy = false,
+    })
+    {
+        Timeout = TimeSpan.FromSeconds(15),
+    };
 
     public string GetHtml(string url)
     {
-        if (!Uri.TryCreate(url, UriKind.Absolute, out var uri) || (uri.Scheme != Uri.UriSchemeHttp && uri.Scheme != Uri.UriSchemeHttps))
-            throw new ArgumentException($"not an http(s) URL: {url}");
-
-        if (respectRobots) CheckRobots(uri);
+        var uri = CheckBeforeFetch(url);
 
         for (var attempt = 1; ; attempt++)
         {
@@ -57,6 +56,16 @@ public class HttpPageSource(HttpClient client, HostThrottle? throttle = null, bo
                 throttle.Sleep(limited.RetryAfter);
             }
         }
+    }
+
+    // URL scheme and robots.txt rules; BrowserPageSource calls this too, so both sources follow the same rules.
+    public Uri CheckBeforeFetch(string url)
+    {
+        if (!Uri.TryCreate(url, UriKind.Absolute, out var uri) || (uri.Scheme != Uri.UriSchemeHttp && uri.Scheme != Uri.UriSchemeHttps))
+            throw new ArgumentException($"not an http(s) URL: {url}");
+
+        if (respectRobots) CheckRobots(uri);
+        return uri;
     }
 
     void CheckRobots(Uri uri)

@@ -8,10 +8,13 @@ You need the [.NET 10 SDK](https://dotnet.microsoft.com/download/dotnet/10.0) (t
 
 ```powershell
 dotnet build
+# once, after the first build: the browser tests need a headless Chromium (about 700 MB)
+powershell -ExecutionPolicy Bypass -File tests\OfferDiff.Render.Tests\bin\Debug\net10.0\playwright.ps1 install chromium
 dotnet test
 dotnet run --project src\OfferDiff.Cli -- samples\feed.csv
 ```
 
+On Linux or macOS, use `pwsh tests/OfferDiff.Render.Tests/bin/Debug/net10.0/playwright.ps1 install chromium`.
 The last command checks the sample feed and should end with `8 rows: 4 match, 2 mismatch, 2 unknown`.
 
 ## Project layout
@@ -20,13 +23,15 @@ The last command checks the sample feed and should end with `8 rows: 4 match, 2 
 |---|---|
 | `src/OfferDiff.Core` | Feed reading, JSON-LD extraction and comparison. All logic lives here. |
 | `src/OfferDiff.Cli` | Argument parsing and printing only. |
-| `tests/OfferDiff.Tests` | xUnit tests for both. |
+| `src/OfferDiff.Render` | `BrowserPageSource`: JavaScript-rendered pages through headless Chromium. The only project that uses Playwright. |
+| `tests/OfferDiff.Tests` | xUnit tests for Core and the CLI. |
+| `tests/OfferDiff.Render.Tests` | Browser tests: a real headless Chromium with pages served from memory. |
 | `samples/` | Synthetic feed and HTML fixture pages (`example-store.test`). |
 
 ## Rules for changes
 
-- **Tests must never use the real network** (use a fake `HttpMessageHandler`). Live fetching
-  lives only in `HttpPageSource`.
+- **Tests must never use the real network** (use a fake `HttpMessageHandler`, or in-memory routes in
+  browser tests). Live fetching lives only in `HttpPageSource` and `BrowserPageSource`.
 - **Synthetic data only.** Never commit real store names, URLs, prices or customer data.
   New fixtures use `example-store.test` and invented products.
 - **New logic needs a test** that fails when the logic breaks.

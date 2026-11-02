@@ -20,4 +20,7 @@ jobs:
         with:
           global-json-file: global.json
       - run: dotnet build
+      # BrowserPageSource tests drive a real headless Chromium; --with-deps adds the system libraries on Linux
+      - name: Install Chromium
+        run: pwsh tests/OfferDiff.Render.Tests/bin/Debug/net10.0/playwright.ps1 install --with-deps chromium
       - run: dotnet test --no-build

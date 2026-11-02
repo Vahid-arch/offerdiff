@@ -8,8 +8,9 @@ Checks that the price, currency and availability in a product feed match the str
 
 Google Merchant Center crawls your product pages and compares them with your feed. When the
 page says something different (for example the feed says 34.50 USD and the page says 39.00 USD),
-the product can be disapproved with **"Mismatched value (page crawl)"**. See Google's help page:
-<https://support.google.com/merchants/answer/9992725>
+the product can be disapproved with **"Mismatched value (page crawl)"**. See Google's help on
+[price issues](https://support.google.com/merchants/troubleshooter/14280358?hl=en) and
+[availability differences](https://support.google.com/merchants/answer/9773127?hl=en).
 
 OfferDiff finds those differences before Google does, and shows the evidence for each row:
 the feed value, the page value and the reason.
@@ -57,7 +58,8 @@ xattr -d com.apple.quarantine offerdiff
 ```
 
 The zips do not include the sample feeds. To try the demo store, download
-[`samples/live-demo-feed.csv`](samples/live-demo-feed.csv) and run `offerdiff live-demo-feed.csv --live`.
+[`samples/live-demo-feed.csv`](samples/live-demo-feed.csv) and run `./offerdiff live-demo-feed.csv --live`
+(`.\offerdiff.exe` on Windows).
 
 ## Quick start (Windows)
 
@@ -137,7 +139,7 @@ verdicts, so the demo stays correct in CI.
 
 ## Sample output
 
-Real output of the command above:
+Real output of `dotnet run --project src\OfferDiff.Cli -- samples\feed.csv` (fixture mode):
 
 ```
 ID             VERDICT   MATCHED BY    DETAILS
@@ -192,7 +194,7 @@ The feed price used is `sale_price` when present, else `price`. Prices are compa
 |---|---|
 | `match` | Price, currency and availability on the page equal the feed. |
 | `mismatch` | At least one of them differs. Each difference is listed with feed and page value. |
-| `unknown` | The tool could not check: page missing or rejected, no or invalid JSON-LD, ambiguous variants, conflicting offers, or the page lacks a price, currency or availability. |
+| `unknown` | The tool could not check: page could not be loaded (missing file, rejected URL, HTTP error, timeout, rate limited, blocked by `robots.txt` or by the private-address check), no or invalid JSON-LD, ambiguous variants, conflicting offers, or the page lacks a price, currency or availability. |
 
 ## Exit codes
 
@@ -200,7 +202,7 @@ The feed price used is `sale_price` when present, else `price`. Prices are compa
 |---|---|
 | 0 | No mismatches (unknown rows and some bad feed rows alone do not fail) |
 | 1 | At least one mismatch |
-| 2 | Error: no argument, feed file not found or unreadable (for example locked by Excel), pages folder not found, or no feed row could be read (for example `;` instead of `,`, missing columns, or an empty feed) |
+| 2 | Error: no argument or a bad option, feed file not found or unreadable (for example locked by Excel), pages folder not found, or no feed row could be read (for example `;` instead of `,`, missing columns, or an empty feed) |
 
 ## JavaScript-rendered pages
 
@@ -229,7 +231,7 @@ It never changes the verdict.
 ## Limitations
 
 - Fixture mode (the default) accepts only URLs on `example-store.test`; use `--live` for real stores.
-- Live mode checks pages one at a time, so a large feed takes at least one second per page on the same site.
+- Live mode checks pages one at a time, so with the default delay a large feed takes at least one second per page on the same site.
 - JSON-LD only: no microdata or RDFa.
 - `@type` must be the plain name (`"Product"`); prefixed forms such as `"schema:Product"` or
   `"https://schema.org/Product"` are not recognized.
@@ -250,7 +252,8 @@ fe80::/10, including cloud metadata at 169.254.169.254), unique-local IPv6 (fc00
 multicast, carrier-grade NAT (100.64/10) and their IPv4-mapped IPv6 forms. A blocked link gives
 **unknown** with `blocked private address <ip>`.
 
-To check your own staging server on the local network, use `HttpPageSource.Create(allowPrivateHosts: true)`.
+To check your own staging server on the local network, pass `--allow-private-hosts` (in code:
+`HttpPageSource.Create(allowPrivateHosts: true)`).
 The system proxy is not used, because a proxy would hide the real target address from this check.
 
 Polite by default: at most 1 request per second per site; honours Retry-After on 429/503 (waits up to 30s, retries once).
@@ -260,11 +263,13 @@ Respects robots.txt (RFC 9309) by default.
 ## Sample data
 
 All sample data is synthetic. The store `example-store.test` and its products are invented;
-`.test` is a reserved domain that never resolves on the internet.
+`.test` is a reserved domain that never resolves on the internet. The demo store on GitHub Pages
+is real hosting with invented products and prices.
 
 ## Status
 
-Prototype, not yet published.
+Pre-release (v0.2.x). Works with live stores that include Product JSON-LD in their
+server HTML; JavaScript-rendered stores are planned for v0.3.
 
 ## License
 

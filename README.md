@@ -308,7 +308,9 @@ Live fetching (`HttpPageSource`) blocks private and internal addresses by defaul
 decides which URLs are requested. Every resolved IP is checked before connecting, including on
 redirects. Blocked: loopback, private (10/8, 172.16/12, 192.168/16), link-local (169.254/16,
 fe80::/10, including cloud metadata at 169.254.169.254), unique-local IPv6 (fc00::/7), unspecified,
-multicast, carrier-grade NAT (100.64/10) and their IPv4-mapped IPv6 forms. A blocked link gives
+multicast, carrier-grade NAT (100.64/10), and the same IPv4 ranges when they are embedded in an IPv6
+address: IPv4-mapped (`::ffff:0:0/96`), NAT64 (`64:ff9b::/96`, `64:ff9b:1::/48`), 6to4 (`2002::/16`)
+and Teredo (`2001::/32`). A blocked link gives
 **unknown** with `blocked private address <ip>`.
 
 To check your own staging server on the local network, pass `--allow-private-hosts` (in code:

@@ -35,6 +35,10 @@ Pre-release. OfferDiff can now check stores that add their product data with Jav
   once in `Directory.Build.props`.
 - Errors about `--delay`, `--allow-private-hosts` and `--pages` now name both `--live` and `--render`.
 
+### Security
+
+- Security: block private IPv4 addresses embedded in NAT64, 6to4 and Teredo IPv6 addresses
+
 ## [0.2.0]
 
 Pre-release. OfferDiff can now check live stores.

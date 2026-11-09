@@ -2,6 +2,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\OfferDiff.Core\OfferDiff.Core.csproj" />
+    <ProjectReference Include="..\OfferDiff.Render\OfferDiff.Render.csproj" />
   </ItemGroup>
 
   <PropertyGroup>

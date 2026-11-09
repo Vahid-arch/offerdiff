@@ -27,6 +27,8 @@ public class NetworkGuardTests
     [InlineData("::ffff:10.0.0.1")]    // IPv4-mapped IPv6 ::ffff:0:0/96
     [InlineData("::ffff:127.0.0.1")]
     [InlineData("::ffff:169.254.169.254")]
+    [InlineData("::a00:5")]            // deprecated IPv4-compatible ::/96, blocked as a whole range
+    [InlineData("::ffff:0:a00:5")]     // deprecated IPv4-translated ::ffff:0:0:0/96, blocked as a whole range
     [InlineData("255.255.255.255")]    // broadcast
     [InlineData("64:ff9b::a00:5")]     // NAT64 64:ff9b::/96 -> 10.0.0.5
     [InlineData("64:ff9b::7f00:1")]    // -> 127.0.0.1

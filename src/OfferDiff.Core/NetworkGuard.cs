@@ -26,11 +26,13 @@ public static class NetworkGuard
                 || b[0] >= 224;                           // 224.0.0.0/4 multicast, 240.0.0.0/4 reserved, broadcast
         }
 
-        return address.Equals(IPAddress.IPv6Any)          // ::
+        var v6 = address.GetAddressBytes();
+        return v6[..12].All(x => x == 0)                  // ::/96 deprecated IPv4-compatible, includes :: and ::1
+            || (v6[..8].All(x => x == 0) && v6[8] == 0xff && v6[9] == 0xff && v6[10] == 0 && v6[11] == 0) // ::ffff:0:0:0/96 IPv4-translated
             || address.IsIPv6LinkLocal                    // fe80::/10
             || address.IsIPv6SiteLocal                    // fec0::/10, deprecated but still private
             || address.IsIPv6Multicast                    // ff00::/8
-            || (address.GetAddressBytes()[0] & 0xFE) == 0xFC; // fc00::/7 unique-local
+            || (v6[0] & 0xFE) == 0xFC;                    // fc00::/7 unique-local
     }
 
     // The IPv4 address carried inside a NAT64, 6to4 or Teredo IPv6 address, or null for any other address.

@@ -10,7 +10,8 @@ public record ComparisonResult(string Id, Verdict Verdict, List<string> Details,
 public static class Comparer
 {
     // getHtml is FixturePageSource.GetHtml (local files) or HttpPageSource.GetHtml (live pages).
-    public static ComparisonResult Compare(FeedItem item, Func<string, string> getHtml)
+    // rendered: getHtml returns a browser DOM (BrowserPageSource), which changes only the "no JSON-LD" hint.
+    public static ComparisonResult Compare(FeedItem item, Func<string, string> getHtml, bool rendered = false)
     {
         string html;
         try
@@ -21,7 +22,7 @@ public static class Comparer
         {
             return Unknown(item, null, $"page could not be loaded: {ex.Message}");
         }
-        return Compare(item, JsonLdExtractor.Extract(html));
+        return Compare(item, JsonLdExtractor.Extract(html, rendered));
     }
 
     public static ComparisonResult Compare(FeedItem item, JsonLdResult page)

@@ -86,4 +86,45 @@ public class JavaScriptHintTests
         Assert.Equal(Verdict.Unknown, result.Verdict);
         Assert.Equal(["no Product offer on page", "no JSON-LD block on page", JsonLdExtractor.JavaScriptHint], result.Details);
     }
+
+    // Browser mode: the page's JavaScript already ran, so the server-HTML wording would be wrong.
+    [Fact]
+    public void Rendered_app_shell_gets_the_browser_hint_not_the_server_one()
+    {
+        Assert.Equal(["no JSON-LD block on page", JsonLdExtractor.RenderedHint], JsonLdExtractor.Extract(AngularShell, rendered: true).Errors);
+    }
+
+    [Fact]
+    public void Rendered_page_with_only_non_product_json_ld_gets_the_browser_hint()
+    {
+        const string html = """<script type="application/ld+json">{"@type":"Organization","name":"Example Store"}</script>""";
+
+        Assert.Equal([JsonLdExtractor.RenderedHint], JsonLdExtractor.Extract(html, rendered: true).Errors);
+        Assert.Empty(JsonLdExtractor.Extract(html).Errors); // server mode: unchanged
+    }
+
+    [Fact]
+    public void Rendered_page_with_a_product_gets_no_hint()
+    {
+        const string html = """<script type="application/ld+json">{"@type":"Product","offers":{"@type":"Offer","price":5,"priceCurrency":"USD"}}</script>""";
+
+        Assert.Empty(JsonLdExtractor.Extract(html, rendered: true).Errors);
+    }
+
+    [Fact]
+    public void Rendered_flag_flows_from_feed_check_to_the_details()
+    {
+        var csv = Path.Combine(Path.GetTempPath(), $"offerdiff-{Guid.NewGuid():N}.csv");
+        File.WriteAllText(csv, "id,title,link,price,sale_price,availability\nA1,Mug,https://example-store.test/products/a,12.99 USD,,in_stock\n");
+        try
+        {
+            var report = FeedCheck.Run(csv, _ => AngularShell, rendered: true);
+
+            Assert.Equal(["no Product offer on page", "no JSON-LD block on page", JsonLdExtractor.RenderedHint], Assert.Single(report.Results).Details);
+        }
+        finally
+        {
+            File.Delete(csv);
+        }
+    }
 }

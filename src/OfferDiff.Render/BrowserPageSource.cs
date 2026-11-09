@@ -21,7 +21,19 @@ public sealed class BrowserPageSource : IDisposable, IAsyncDisposable
     readonly TimeSpan navigationTimeout;
     readonly TimeSpan jsonLdWait;
     readonly Func<IBrowserContext, Task>? configureContext;
+    readonly string? browserChannel;
     readonly SemaphoreSlim startLock = new(1, 1);
+
+    // Browser channels Playwright can launch from the user's own installation instead of its downloaded Chromium.
+    public static readonly string[] Channels =
+        ["chrome", "chrome-beta", "chrome-dev", "chrome-canary", "msedge", "msedge-beta", "msedge-dev", "msedge-canary"];
+
+    // A script that is true once some JSON-LD block names a Product (or ProductGroup). Waiting for any JSON-LD
+    // would stop at an Organization or BreadcrumbList block that many stores render before the product.
+    const string ProductJsonLdPresent = """
+        () => [...document.querySelectorAll('script[type="application/ld+json"]')]
+            .some(s => /"@type"\s*:\s*(\[[^\]]*)?"Product(Group)?"/.test(s.textContent))
+        """;
 
     GuardProxy? proxy;
     IPlaywright? playwright;
@@ -32,7 +44,8 @@ public sealed class BrowserPageSource : IDisposable, IAsyncDisposable
 
     // configureContext lets tests register in-memory pages; the guard is added after it, so the guard runs first.
     internal BrowserPageSource(HttpPageSource gate, HostThrottle throttle, bool allowPrivateHosts = false,
-        TimeSpan? navigationTimeout = null, TimeSpan? jsonLdWait = null, Func<IBrowserContext, Task>? configureContext = null)
+        TimeSpan? navigationTimeout = null, TimeSpan? jsonLdWait = null, Func<IBrowserContext, Task>? configureContext = null,
+        string? browserChannel = null)
     {
         this.gate = gate;
         this.throttle = throttle;
@@ -40,12 +53,42 @@ public sealed class BrowserPageSource : IDisposable, IAsyncDisposable
         this.navigationTimeout = navigationTimeout ?? DefaultNavigationTimeout;
         this.jsonLdWait = jsonLdWait ?? DefaultJsonLdWait;
         this.configureContext = configureContext;
+        this.browserChannel = browserChannel;
     }
 
-    public static BrowserPageSource Create(bool allowPrivateHosts = false, TimeSpan? minDelay = null, bool respectRobots = true)
+    // browserChannel: one of Channels, to use an installed Chrome or Edge instead of Playwright's Chromium.
+    public static BrowserPageSource Create(bool allowPrivateHosts = false, TimeSpan? minDelay = null, bool respectRobots = true,
+        string? browserChannel = null)
     {
         var throttle = new HostThrottle(minDelay ?? TimeSpan.FromSeconds(1));
-        return new(new HttpPageSource(HttpPageSource.CreateClient(allowPrivateHosts), throttle, respectRobots), throttle, allowPrivateHosts);
+        return new(new HttpPageSource(HttpPageSource.CreateClient(allowPrivateHosts), throttle, respectRobots), throttle, allowPrivateHosts,
+            browserChannel: browserChannel);
+    }
+
+    // Starts the browser now instead of on the first page, so a missing browser is reported once, before any row.
+    public void Start()
+    {
+        try
+        {
+            Task.Run(StartBrowserAsync).GetAwaiter().GetResult();
+        }
+        catch (PlaywrightException ex)
+        {
+            throw ToIOException(ex);
+        }
+    }
+
+    // Downloads Playwright's headless Chromium (the only build OfferDiff launches) into the user's Playwright folder.
+    public static int InstallChromium()
+    {
+        try
+        {
+            return Microsoft.Playwright.Program.Main(["install", "chromium", "--only-shell"]);
+        }
+        catch (PlaywrightException ex)
+        {
+            throw ToIOException(ex);
+        }
     }
 
     public string GetHtml(string url) => Task.Run(() => GetHtmlAsync(url)).GetAwaiter().GetResult();
@@ -118,16 +161,11 @@ public sealed class BrowserPageSource : IDisposable, IAsyncDisposable
 
         try
         {
-            // State: Attached, because a script element is never "visible", which is what the default waits for
-            await page.WaitForSelectorAsync("script[type=\"application/ld+json\"]", new()
-            {
-                State = WaitForSelectorState.Attached,
-                Timeout = (float)jsonLdWait.TotalMilliseconds,
-            });
+            await page.WaitForFunctionAsync(ProductJsonLdPresent, null, new() { Timeout = (float)jsonLdWait.TotalMilliseconds });
         }
         catch (TimeoutException)
         {
-            // no JSON-LD after waiting: return the page anyway, and the row becomes unknown
+            // no Product JSON-LD after waiting: return the page anyway; the extractor adds the browser-mode hint
         }
 
         return await page.ContentAsync();
@@ -176,10 +214,12 @@ public sealed class BrowserPageSource : IDisposable, IAsyncDisposable
         {
             if (browser != null) return browser;
 
-            proxy = new GuardProxy(allowPrivateHosts, BlockedRequests.Enqueue);
-            playwright = await Playwright.CreateAsync();
+            // ??= so a failed start (no driver, no Chromium) can be retried without leaking the proxy or driver
+            proxy ??= new GuardProxy(allowPrivateHosts, BlockedRequests.Enqueue);
+            playwright ??= await Playwright.CreateAsync();
             return browser = await playwright.Chromium.LaunchAsync(new()
             {
+                Channel = browserChannel,
                 // Playwright adds <-loopback> to the bypass list, so loopback addresses go through the proxy too
                 Proxy = new() { Server = $"http://127.0.0.1:{proxy.Port}" },
                 // WebRTC uses UDP, which a proxy cannot see
@@ -195,7 +235,13 @@ public sealed class BrowserPageSource : IDisposable, IAsyncDisposable
     internal static IOException ToIOException(PlaywrightException ex)
     {
         if (ex.Message.Contains("Executable doesn't exist", StringComparison.OrdinalIgnoreCase))
-            return new IOException($"Chromium is not installed; run: {InstallCommand()}");
+            return new BrowserMissingException(MissingPart.Chromium, $"Chromium is not installed; run: {InstallCommand()}");
+        if (ex.Message.Contains("Driver not found", StringComparison.OrdinalIgnoreCase))
+            return new BrowserMissingException(MissingPart.Driver,
+                "the Playwright driver (the .playwright folder) is missing next to the program");
+        if (ex.Message.Contains("Chromium distribution", StringComparison.OrdinalIgnoreCase)
+            && ex.Message.Contains("is not found", StringComparison.OrdinalIgnoreCase))
+            return new BrowserMissingException(MissingPart.Channel, ex.Message.Split(" at ")[0].Trim());
 
         // Playwright messages continue with a long call log after the first line
         return new IOException(ex.Message.Split('\n')[0].Trim());
@@ -220,4 +266,13 @@ public sealed class BrowserPageSource : IDisposable, IAsyncDisposable
         playwright = null;
         proxy = null;
     }
+}
+
+// Which part is missing decides the fix: install Chromium, get the render download, or pick another channel.
+public enum MissingPart { Chromium, Driver, Channel }
+
+// Thrown (as an IOException, so a row would still become unknown) when the browser cannot start at all.
+public sealed class BrowserMissingException(MissingPart part, string message) : IOException(message)
+{
+    public MissingPart Part => part;
 }

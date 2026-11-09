@@ -81,6 +81,10 @@ public sealed class BrowserPageSource : IDisposable, IAsyncDisposable
     // Downloads Playwright's headless Chromium (the only build OfferDiff launches) into the user's Playwright folder.
     public static int InstallChromium()
     {
+        // Without the driver, Playwright's installer prints its own error and returns 1 instead of throwing.
+        if (!Directory.Exists(Path.Combine(AppContext.BaseDirectory, ".playwright")))
+            throw new BrowserMissingException(MissingPart.Driver, "the Playwright driver (the .playwright folder) is missing next to the program");
+
         try
         {
             return Microsoft.Playwright.Program.Main(["install", "chromium", "--only-shell"]);

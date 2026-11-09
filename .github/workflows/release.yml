@@ -1,6 +1,6 @@
 name: Release
 
-# Runs when a version tag such as v0.2.0 is pushed: test, build single-file binaries, publish a pre-release.
+# Runs when a version tag such as v0.3.0 is pushed: test, build single-file binaries, publish a pre-release.
 on:
   push:
     tags: ['v*']
@@ -21,9 +21,12 @@ jobs:
         with:
           global-json-file: global.json
       - run: dotnet build
+      # BrowserPageSource and --render tests drive a real headless Chromium; --with-deps adds the system libraries on Linux
+      - name: Install Chromium
+        run: pwsh tests/OfferDiff.Render.Tests/bin/Debug/net10.0/playwright.ps1 install --with-deps chromium
       - run: dotnet test --no-build
 
-      # Fail early, before any publishing, if the changelog or User-Agent was not updated for this tag.
+      # Fail early, before any publishing, if the changelog, User-Agent or version was not updated for this tag.
       - name: Check version and extract release notes
         if: runner.os == 'Linux'
         shell: bash
@@ -35,6 +38,9 @@ jobs:
           fi
           if ! grep -q "\"OfferDiff/$version " src/OfferDiff.Core/HttpPageSource.cs; then
             echo "::error::HttpPageSource.UserAgent does not say OfferDiff/$version"; exit 1
+          fi
+          if ! grep -q "<Version>$version</Version>" Directory.Build.props; then
+            echo "::error::Directory.Build.props does not say <Version>$version</Version>"; exit 1
           fi
       - uses: actions/upload-artifact@v4
         if: runner.os == 'Linux'
@@ -59,6 +65,8 @@ jobs:
       - uses: actions/setup-dotnet@v4
         with:
           global-json-file: global.json
+      # One publish, two downloads: "offerdiff" is the program alone (fixture and --live modes; --render explains which
+      # download to get), "offerdiff-render" adds the Playwright driver (.playwright folder) that --render needs.
       - name: Publish and zip
         shell: bash
         run: |
@@ -67,14 +75,27 @@ jobs:
             -p:SelfContained=true -p:PublishSingleFile=true \
             -p:Version="$version" -p:DebugType=none -o publish
           [ -f publish/offerdiff ] && chmod +x publish/offerdiff
-          zip_name="offerdiff-$version-${{ matrix.rid }}.zip"
-          (cd publish && zip -q -r "../$zip_name" .)
-          zip -q -j "$zip_name" LICENSE README.md
-          echo "ZIP_NAME=$zip_name" >> "$GITHUB_ENV"
+          # the driver runs a bundled Node.js, which must stay executable on Linux and macOS
+          find publish/.playwright -type f -name node -exec chmod +x {} +
+          core="offerdiff-$version-${{ matrix.rid }}.zip"
+          render="offerdiff-render-$version-${{ matrix.rid }}.zip"
+          exe=offerdiff; [ -f publish/offerdiff.exe ] && exe=offerdiff.exe
+          (cd publish && zip -q "../$core" "$exe")
+          (cd publish && zip -q -r "../$render" .)
+          zip -q -j "$core" LICENSE README.md
+          zip -q -j "$render" LICENSE README.md
+          # guard the split: the core zip must not carry the driver, the render zip must
+          if unzip -l "$core" | grep -q "\.playwright/"; then echo "::error::$core contains .playwright"; exit 1; fi
+          if ! unzip -l "$render" | grep -q "\.playwright/"; then echo "::error::$render has no .playwright folder"; exit 1; fi
+          unzip -l "$core"
+          echo "CORE_ZIP=$core" >> "$GITHUB_ENV"
+          echo "RENDER_ZIP=$render" >> "$GITHUB_ENV"
       - uses: actions/upload-artifact@v4
         with:
-          name: ${{ env.ZIP_NAME }}
-          path: ${{ env.ZIP_NAME }}
+          name: offerdiff-${{ matrix.rid }}
+          path: |
+            ${{ env.CORE_ZIP }}
+            ${{ env.RENDER_ZIP }}
 
   release:
     needs: publish

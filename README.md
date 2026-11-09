@@ -21,19 +21,22 @@ Ready-to-run binaries are on the [Releases page](https://github.com/Vahid-arch/o
 They are self-contained single files, so you do **not** need .NET installed. Releases are marked as
 pre-releases while OfferDiff is at 0.x.
 
-| File | For |
-|---|---|
-| `offerdiff-<version>-win-x64.zip` | Windows (64-bit) |
-| `offerdiff-<version>-linux-x64.zip` | Linux (64-bit, glibc) |
-| `offerdiff-<version>-osx-x64.zip` | macOS on Intel |
-| `offerdiff-<version>-osx-arm64.zip` | macOS on Apple silicon (M1 and later) |
-| `SHA256SUMS.txt` | checksums of the zips |
+Each platform has two zips. Pick **`offerdiff`** if your store puts its product JSON-LD in the server
+HTML, and **`offerdiff-render`** if you need `--render` for a JavaScript-rendered store.
 
-Each zip holds the `offerdiff` program, `LICENSE` and this README. To check a download, compare
-its SHA-256 with the line in `SHA256SUMS.txt`:
+| Platform | Program only (about 30 MB) | With browser support for `--render` (about 70 MB) |
+|---|---|---|
+| Windows (64-bit) | `offerdiff-<version>-win-x64.zip` | `offerdiff-render-<version>-win-x64.zip` |
+| Linux (64-bit, glibc) | `offerdiff-<version>-linux-x64.zip` | `offerdiff-render-<version>-linux-x64.zip` |
+| macOS on Intel | `offerdiff-<version>-osx-x64.zip` | `offerdiff-render-<version>-osx-x64.zip` |
+| macOS on Apple silicon (M1 and later) | `offerdiff-<version>-osx-arm64.zip` | `offerdiff-render-<version>-osx-arm64.zip` |
+
+`SHA256SUMS.txt` has the checksums of all zips. Each zip holds the `offerdiff` program, `LICENSE` and
+this README; the render zip also has a `.playwright` folder (the browser driver) that must stay next
+to the program. To check a download, compare its SHA-256 with the line in `SHA256SUMS.txt`:
 
 ```powershell
-Get-FileHash .\offerdiff-0.2.0-win-x64.zip -Algorithm SHA256   # Windows
+Get-FileHash .\offerdiff-0.3.0-win-x64.zip -Algorithm SHA256   # Windows
 ```
 ```sh
 sha256sum -c SHA256SUMS.txt --ignore-missing                   # Linux
@@ -57,6 +60,10 @@ flag with:
 xattr -d com.apple.quarantine offerdiff
 ```
 
+For the render zip on macOS, clear the whole folder instead, because the driver has its own program:
+`xattr -dr com.apple.quarantine .`. Then install the browser once (see
+[Checking a JavaScript-rendered store](#checking-a-javascript-rendered-store)).
+
 The zips do not include the sample feeds. To try the demo store, download
 [`samples/live-demo-feed.csv`](samples/live-demo-feed.csv) and run `./offerdiff live-demo-feed.csv --live`
 (`.\offerdiff.exe` on Windows).
@@ -72,18 +79,23 @@ cd offerdiff
 dotnet run --project src\OfferDiff.Cli -- samples\feed.csv
 ```
 
-Run the tests with `dotnet test`.
+Run the tests with `dotnet test`. The browser tests need Chromium first; see [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ### Options
 
 ```
 usage: offerdiff <feed.csv> [--pages <folder>]
        offerdiff <feed.csv> --live [--delay <seconds>] [--allow-private-hosts]
+       offerdiff <feed.csv> --render [--browser-channel <name>] [--delay <seconds>] [--allow-private-hosts]
+       offerdiff --install-browser
 
-  --pages <folder>         fixture mode: folder with local pages (default: "pages" next to the CSV)
-  --live                   fetch the real product pages from the feed's links
-  --delay <seconds>        live mode: minimum gap between requests to one site (default 1, at least 0.5)
-  --allow-private-hosts    live mode: allow local network addresses, for your own staging server
+  --pages <folder>          fixture mode: folder with local pages (default: "pages" next to the CSV)
+  --live                    fetch the real product pages from the feed's links
+  --render                  like --live, but open each page in headless Chromium so its JavaScript runs first
+  --browser-channel <name>  render mode: use an installed browser instead (chrome, msedge, or their -beta, -dev, -canary)
+  --delay <seconds>         live/render mode: minimum gap between requests to one site (default 1, at least 0.5)
+  --allow-private-hosts     live/render mode: allow local network addresses, for your own staging server
+  --install-browser         download the headless Chromium that --render uses (once)
 ```
 
 Without `--live`, the tool runs in **fixture mode**: a link such as
@@ -109,6 +121,35 @@ Progress (`checking 12/240: <id>`) goes to stderr, so the table on stdout stays 
 
 > **Only check stores you own or have permission to check.**
 
+## Checking a JavaScript-rendered store
+
+If your store adds its product JSON-LD with JavaScript (see
+[JavaScript-rendered pages](#javascript-rendered-pages)), use `--render`. Install the browser once, then
+check the feed:
+
+```powershell
+dotnet run --project src\OfferDiff.Cli -- --install-browser
+dotnet run --project src\OfferDiff.Cli -- my-feed.csv --render
+```
+
+With the render download, that is `.\offerdiff.exe --install-browser` and
+`.\offerdiff.exe my-feed.csv --render` (`./offerdiff` on Linux and macOS).
+
+`--render` opens each page in a headless Chromium, lets its JavaScript run, and checks the result. It
+waits up to 10 seconds for a JSON-LD block that names a `Product`, then checks the page either way. It keeps
+the same rules as `--live`: 1 request per second per site, `robots.txt`, and private-address blocking for
+every request the browser makes (see [Security](#security)). It also skips images, media and fonts.
+Expect a few seconds per page.
+
+- `--install-browser` downloads Playwright's headless Chromium (about 280 MB on disk), into the
+  standard Playwright folder for your user.
+- Instead, `--browser-channel chrome` or `--browser-channel msedge` uses the Chrome or Edge already
+  installed on your computer.
+- If the browser or its driver is missing, `--render` stops before checking any row and prints one line
+  with the fix (exit code 2).
+- On Linux, Chromium needs some system libraries. If it reports missing dependencies, install them with
+  your package manager (Playwright lists them for each distribution).
+
 ## Try live mode on the demo store
 
 The project has a small public demo store on GitHub Pages, so you can try `--live` against real URLs
@@ -124,6 +165,8 @@ Expected result line (exit code 1, because of the deliberate mismatch):
 ```
 6 rows: 5 match, 1 mismatch, 0 unknown
 ```
+
+The same command with `--render` instead of `--live` gives the same line, through the browser.
 
 | Row | Page pattern | Expected |
 |---|---|---|
@@ -206,13 +249,20 @@ The feed price used is `sale_price` when present, else `price`. Prices are compa
 
 ## JavaScript-rendered pages
 
-OfferDiff reads the HTML the server sends. It does not run JavaScript. Many stores built as
-single-page apps (Angular, React, Vue, Next.js and similar) send an almost empty page and add the
-product JSON-LD later in the browser. OfferDiff then finds no structured data, and the row is
-**unknown**. When the page looks like such an app, the details add:
+Without `--render`, OfferDiff reads the HTML the server sends and does not run JavaScript. Many stores
+built as single-page apps (Angular, React, Vue, Next.js and similar) send an almost empty page and
+add the product JSON-LD later in the browser. OfferDiff then finds no structured data, and the row
+is **unknown**. When the page looks like such an app, the details add:
 
 ```
 structured data may be added by JavaScript; OfferDiff reads server HTML only (see README: JavaScript-rendered pages)
+```
+
+Run such a store again with [`--render`](#checking-a-javascript-rendered-store). If even the rendered
+page has no Product JSON-LD after the wait, the details say:
+
+```
+no Product JSON-LD appeared after the page's JavaScript ran (browser mode; see README: JavaScript-rendered pages)
 ```
 
 This matters for Merchant Center too. Google's guide
@@ -224,9 +274,12 @@ reliable"*, which is a problem for fast-changing values such as price and availa
 or prerendering of product pages. Then Google and OfferDiff both see the same price and availability
 as the feed.
 
-The hint is a guess from signs such as `<app-root>`, `ng-version`, `<div id="root">`,
+The first hint is a guess from signs such as `<app-root>`, `ng-version`, `<div id="root">`,
 `<div id="app">`, `__NEXT_DATA__`, `data-beasties-container`, or a page body with almost no text.
-It never changes the verdict.
+Neither hint ever changes the verdict.
+
+`--render` shows what a browser sees, which helps you find these problems. It does not prove what
+Google's Shopping crawler sees, so server-rendered JSON-LD is still the safe fix.
 
 ## Limitations
 
@@ -235,8 +288,14 @@ It never changes the verdict.
 - JSON-LD only: no microdata or RDFa.
 - `@type` must be the plain name (`"Product"`); prefixed forms such as `"schema:Product"` or
   `"https://schema.org/Product"` are not recognized.
-- No JavaScript rendering, also in live mode (see [JavaScript-rendered pages](#javascript-rendered-pages)): the page is read as the server sends it, so structured
-  data added by scripts is not seen.
+- Without `--render`, no JavaScript runs (see [JavaScript-rendered pages](#javascript-rendered-pages)):
+  the page is read as the server sends it, so structured data added by scripts is not seen.
+- In `--render` mode:
+  - only the product page itself is throttled and checked against `robots.txt`; the scripts and
+    data requests it starts on the same page are not (they are still checked for private addresses)
+  - 429/503 are not retried
+  - the 5 MB limit applies to the rendered page, not to everything the browser downloads
+  - bot protection may block a headless browser, and the rows then show what the store returned
 - No `priceSpecification`: only `price`, and `lowPrice`/`highPrice` on `AggregateOffer`
   (a price range gives unknown).
 - Availability is limited to `InStock`, `OutOfStock`, `PreOrder` and `BackOrder`.
@@ -256,6 +315,11 @@ To check your own staging server on the local network, pass `--allow-private-hos
 `HttpPageSource.Create(allowPrivateHosts: true)`).
 The system proxy is not used, because a proxy would hide the real target address from this check.
 
+In `--render` mode the same rules cover every request the browser makes. That includes scripts, data
+requests, popups, redirect hops and WebSockets. The browser is forced through a small local proxy
+inside OfferDiff that runs this check on each connection. It also connects only to the address it
+checked, so a second DNS answer cannot switch to a private one.
+
 Polite by default: at most 1 request per second per site; honours Retry-After on 429/503 (waits up to 30s, retries once).
 
 Respects robots.txt (RFC 9309) by default.
@@ -268,8 +332,8 @@ is real hosting with invented products and prices.
 
 ## Status
 
-Pre-release (v0.2.x). Works with live stores that include Product JSON-LD in their
-server HTML; JavaScript-rendered stores are planned for v0.3.
+Pre-release (v0.3.x). Works with live stores that include Product JSON-LD in their server HTML, and
+with JavaScript-rendered stores through `--render`.
 
 ## License
 

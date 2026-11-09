@@ -92,11 +92,45 @@ public class BrowserPageSourceTests : IDisposable
         Serve(MugUrl, "<html><body><script>document.body.dataset.rendered = 'yes';</script></body></html>");
         var source = Source(jsonLdWait: TimeSpan.FromMilliseconds(300));
 
-        var result = Comparer.Compare(Mug(), source.GetHtml);
+        var result = Comparer.Compare(Mug(), source.GetHtml, rendered: true);
 
         Assert.Equal(Verdict.Unknown, result.Verdict);
-        Assert.Contains("no JSON-LD block on page", result.Details);
+        Assert.Equal(["no Product offer on page", "no JSON-LD block on page", JsonLdExtractor.RenderedHint], result.Details);
         Assert.Contains("data-rendered=\"yes\"", source.GetHtml(MugUrl));
+    }
+
+    [Fact]
+    public void Waits_past_an_early_organization_block_for_the_product()
+    {
+        // Organization first (as many stores render it), the Product 400 ms later: waiting for "any JSON-LD" would stop too early
+        Serve(MugUrl, $$"""
+            <html><head><script type="application/ld+json">{"@type":"Organization","name":"Example Store"}</script></head>
+            <body><script>
+              setTimeout(() => {
+                const block = document.createElement('script');
+                block.type = 'application/ld+json';
+                block.textContent = JSON.stringify({ '@type': ['Product', 'Thing'], sku: 'MUG',
+                  offers: { '@type': 'Offer', url: '{{MugUrl}}', price: 12.99, priceCurrency: 'USD', availability: 'https://schema.org/InStock' } });
+                document.head.appendChild(block);
+              }, 400);
+            </script></body></html>
+            """);
+
+        var result = Comparer.Compare(Mug(), Source().GetHtml, rendered: true);
+
+        Assert.Equal(Verdict.Match, result.Verdict);
+    }
+
+    [Fact]
+    public void Only_non_product_json_ld_times_out_and_gets_the_browser_hint()
+    {
+        Serve(MugUrl, """<html><head><script type="application/ld+json">{"@type":"Organization","name":"Example Store"}</script></head><body></body></html>""");
+        var source = Source(jsonLdWait: TimeSpan.FromMilliseconds(300));
+
+        var result = Comparer.Compare(Mug(), source.GetHtml, rendered: true);
+
+        Assert.Equal(Verdict.Unknown, result.Verdict);
+        Assert.Equal(["no Product offer on page", JsonLdExtractor.RenderedHint], result.Details);
     }
 
     [Fact]
@@ -110,7 +144,7 @@ public class BrowserPageSourceTests : IDisposable
               ]).then(() => {
                 const block = document.createElement('script');
                 block.type = 'application/ld+json';
-                block.textContent = '{}';
+                block.textContent = '{"@type":"Product"}';
                 document.head.appendChild(block);
               });
             </script></body></html>
@@ -201,7 +235,7 @@ public class BrowserPageSourceTests : IDisposable
               socket.onerror = socket.onclose = () => {
                 const block = document.createElement('script');
                 block.type = 'application/ld+json';
-                block.textContent = '{}';
+                block.textContent = '{"@type":"Product"}';
                 document.head.appendChild(block);
               };
             </script></body></html>
@@ -224,7 +258,7 @@ public class BrowserPageSourceTests : IDisposable
               setTimeout(() => {
                 const block = document.createElement('script');
                 block.type = 'application/ld+json';
-                block.textContent = '{}';
+                block.textContent = '{"@type":"Product"}';
                 document.head.appendChild(block);
               }, 300);
             </script></body></html>
@@ -253,7 +287,7 @@ public class BrowserPageSourceTests : IDisposable
         Serve(MugUrl, $$"""
             <html><head><script src="{{Site}}/app.js"></script></head>
             <body><img src="{{Site}}/photo.jpg"><video src="{{Site}}/clip.mp4"></video>
-            <script type="application/ld+json">{}</script></body></html>
+            <script type="application/ld+json">{"@type":"Product"}</script></body></html>
             """);
         pages[Site + "/app.js"] = route => route.FulfillAsync(new() { Status = 200, ContentType = "text/javascript", Body = "" });
 
@@ -271,7 +305,7 @@ public class BrowserPageSourceTests : IDisposable
         pages[MugUrl] = async route =>
         {
             agent = route.Request.Headers["user-agent"];
-            await route.FulfillAsync(new() { Status = 200, ContentType = "text/html", Body = "<script type=\"application/ld+json\">{}</script>" });
+            await route.FulfillAsync(new() { Status = 200, ContentType = "text/html", Body = "<script type=\"application/ld+json\">{\"@type\":\"Product\"}</script>" });
         };
 
         Source().GetHtml(MugUrl);
@@ -346,7 +380,7 @@ public class BrowserPageSourceTests : IDisposable
     [Fact]
     public void Page_over_5_MB_is_a_short_IOException()
     {
-        Serve(MugUrl, "<script type=\"application/ld+json\">{}</script><p>" + new string('x', HttpPageSource.MaxBytes) + "</p>");
+        Serve(MugUrl, "<script type=\"application/ld+json\">{\"@type\":\"Product\"}</script><p>" + new string('x', HttpPageSource.MaxBytes) + "</p>");
 
         Assert.Equal("page larger than 5 MB", Assert.ThrowsAny<IOException>(() => Source().GetHtml(MugUrl)).Message);
     }
@@ -370,16 +404,43 @@ public class BrowserPageSourceTests : IDisposable
         {
             Serve(MugUrl, InjectedJsonLd(12.99m));
 
-            var ex = Assert.ThrowsAny<IOException>(() => Source().GetHtml(MugUrl));
+            var ex = Assert.Throws<BrowserMissingException>(() => Source().GetHtml(MugUrl));
 
+            Assert.Equal(MissingPart.Chromium, ex.Part);
             Assert.Equal($"Chromium is not installed; run: {BrowserPageSource.InstallCommand()}", ex.Message);
             Assert.Contains("playwright.ps1", ex.Message);
             Assert.Contains(" install chromium", ex.Message);
+
+            // Start() reports the same thing up front, before any page; the CLI uses it to print one fix line
+            Assert.Equal(MissingPart.Chromium, Assert.Throws<BrowserMissingException>(() => Source().Start()).Part);
         }
         finally
         {
             Environment.SetEnvironmentVariable("PLAYWRIGHT_BROWSERS_PATH", before);
             empty.Delete(recursive: true);
         }
+    }
+
+    // Exact messages Playwright 1.64 gives; the driver case only happens in a download without the .playwright folder.
+    [Theory]
+    [InlineData(@"Driver not found: C:\offerdiff\.playwright\node\win32_x64\node.exe", MissingPart.Driver,
+        "the Playwright driver (the .playwright folder) is missing next to the program")]
+    [InlineData(@"Chromium distribution 'msedge' is not found at C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe", MissingPart.Channel,
+        "Chromium distribution 'msedge' is not found")]
+    public void Missing_driver_or_channel_is_recognised(string playwrightMessage, MissingPart part, string message)
+    {
+        var ex = Assert.IsType<BrowserMissingException>(BrowserPageSource.ToIOException(new PlaywrightException(playwrightMessage)));
+
+        Assert.Equal(part, ex.Part);
+        Assert.Equal(message, ex.Message);
+    }
+
+    [Fact]
+    public void Other_playwright_errors_keep_only_their_first_line()
+    {
+        var ex = BrowserPageSource.ToIOException(new PlaywrightException("net::ERR_CONNECTION_RESET at http://203.0.113.10/\nCall log:\n  - navigating"));
+
+        Assert.IsNotType<BrowserMissingException>(ex);
+        Assert.Equal("net::ERR_CONNECTION_RESET at http://203.0.113.10/", ex.Message);
     }
 }

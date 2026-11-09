@@ -18,6 +18,10 @@ public static class JsonLdExtractor
     public const string JavaScriptHint =
         "structured data may be added by JavaScript; OfferDiff reads server HTML only (see README: JavaScript-rendered pages)";
 
+    // Browser mode already ran the page's JavaScript, so "reads server HTML only" would be wrong there.
+    public const string RenderedHint =
+        "no Product JSON-LD appeared after the page's JavaScript ran (browser mode; see README: JavaScript-rendered pages)";
+
     // Signs of a JavaScript app shell (Angular, React, Vue, Next.js, Angular SSR's beasties): same regex shortcut as above.
     static readonly Regex AppShellMarker = new(
         """<app-root\b|\bng-version=|<div\b[^>]*\bid\s*=\s*["']?(root|app)\b|__NEXT_DATA__|data-beasties-container""",
@@ -27,14 +31,15 @@ public static class JsonLdExtractor
     static readonly Regex NonText = new("""<(script|style|noscript|template)\b.*?</\1\s*>|<[^>]*>""",
         RegexOptions.IgnoreCase | RegexOptions.Singleline, TimeSpan.FromSeconds(1));
 
-    public static JsonLdResult Extract(string html)
+    // rendered: the html is a browser DOM after JavaScript ran (BrowserPageSource), not the server's HTML.
+    public static JsonLdResult Extract(string html, bool rendered = false)
     {
         var result = new JsonLdResult([], []);
         var blocks = ScriptBlock.Matches(html);
         if (blocks.Count == 0)
         {
             result.Errors.Add("no JSON-LD block on page");
-            if (LooksLikeJavaScriptApp(html)) result.Errors.Add(JavaScriptHint);
+            if (!rendered && LooksLikeJavaScriptApp(html)) result.Errors.Add(JavaScriptHint);
         }
 
         for (var i = 0; i < blocks.Count; i++)
@@ -52,6 +57,7 @@ public static class JsonLdExtractor
                 result.Errors.Add($"JSON-LD block {i + 1}: invalid JSON (line {line}: {reason})");
             }
         }
+        if (rendered && result.Offers.Count == 0) result.Errors.Add(RenderedHint);
         return result;
     }
 

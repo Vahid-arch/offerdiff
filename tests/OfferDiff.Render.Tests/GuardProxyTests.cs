@@ -142,4 +142,101 @@ public class GuardProxyTests
 
         Assert.StartsWith("HTTP/1.1 400", await SendAsync(proxy.Port, request));
     }
+
+    // Keep-alive: a browser may send a second request on a proxy connection it already used. The proxy binds each
+    // connection to the first site it checked, so a second request naming a private address must never open a new
+    // connection there. 203.0.113.10 stands in for a public store: the test's connect function maps it to a local
+    // socket; every other address goes through the real NetworkGuard, which blocks loopback.
+    [Theory]
+    [InlineData(true)]  // both requests in one write (pipelined)
+    [InlineData(false)] // second request after the first response
+    public async Task Reused_keep_alive_connection_cannot_reach_a_private_address(bool pipelined)
+    {
+        var (store, storeReceived) = GracefulSite("HTTP/1.1 200 OK\r\nConnection: close\r\nContent-Length: 2\r\n\r\nok");
+        var storePort = ((IPEndPoint)store.LocalEndpoint).Port;
+        var privateService = new TcpListener(IPAddress.Loopback, 0);
+        privateService.Start();
+        var privatePort = ((IPEndPoint)privateService.LocalEndpoint).Port;
+        var privateConnection = privateService.AcceptTcpClientAsync();
+
+        var connects = new List<string>();
+        async ValueTask<Stream> Connect(DnsEndPoint endpoint, CancellationToken token)
+        {
+            lock (connects) connects.Add($"{endpoint.Host}:{endpoint.Port}");
+            if (endpoint.Host != "203.0.113.10")
+                return await NetworkGuard.ConnectAsync(endpoint, allowPrivateHosts: false, token);
+            var client = new TcpClient();
+            await client.ConnectAsync(IPAddress.Loopback, storePort, token);
+            return client.GetStream();
+        }
+
+        using var proxy = new GuardProxy(allowPrivateHosts: false, blocked.Add, Connect);
+        var first = "GET http://203.0.113.10/products/mug HTTP/1.1\r\nHost: 203.0.113.10\r\nProxy-Connection: keep-alive\r\n\r\n";
+        var second = $"GET http://127.0.0.1:{privatePort}/secret HTTP/1.1\r\nHost: 127.0.0.1\r\nProxy-Connection: keep-alive\r\n\r\n";
+        try
+        {
+            using var client = new TcpClient();
+            await client.ConnectAsync(IPAddress.Loopback, proxy.Port);
+            var stream = client.GetStream();
+            await stream.WriteAsync(Encoding.ASCII.GetBytes(pipelined ? first + second : first));
+
+            var reply = await ReadToCloseAsync(stream);
+            if (!pipelined)
+            {
+                // the proxy closed the connection after the first response, so the second request has nowhere to go
+                try { await stream.WriteAsync(Encoding.ASCII.GetBytes(second)); } catch (IOException) { }
+                Assert.Equal("", await ReadToCloseAsync(stream));
+            }
+
+            Assert.EndsWith("ok", reply);
+            Assert.StartsWith("GET /products/mug HTTP/1.1\r\n", await storeReceived);
+            Assert.Equal(["203.0.113.10:80"], connects); // one upstream connection only, never a second one
+            Assert.False(privateConnection.IsCompleted);  // nothing ever connected to the private service
+            Assert.Empty(blocked);                         // it was never even attempted
+        }
+        finally
+        {
+            store.Stop();
+            privateService.Stop();
+        }
+    }
+
+    // Like a real server answering "Connection: close": reply, end its side, and drain whatever else arrives.
+    // (Closing with unread bytes would make Windows send a TCP reset that can drop the reply.)
+    static (TcpListener Listener, Task<string> Received) GracefulSite(string answer)
+    {
+        var listener = new TcpListener(IPAddress.Loopback, 0);
+        listener.Start();
+        return (listener, Task.Run(async () =>
+        {
+            using var client = await listener.AcceptTcpClientAsync();
+            var stream = client.GetStream();
+            var buffer = new byte[4096];
+            var read = await stream.ReadAsync(buffer);
+            var request = Encoding.ASCII.GetString(buffer, 0, read);
+            await stream.WriteAsync(Encoding.ASCII.GetBytes(answer));
+            client.Client.Shutdown(SocketShutdown.Send);
+            using var drain = new CancellationTokenSource(TimeSpan.FromSeconds(2));
+            try { while (await stream.ReadAsync(buffer, drain.Token) > 0) { } } catch (OperationCanceledException) { } catch (IOException) { }
+            return request;
+        }));
+    }
+
+    static async Task<string> ReadToCloseAsync(NetworkStream stream)
+    {
+        var buffer = new byte[4096];
+        var received = new StringBuilder();
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+        try
+        {
+            int read;
+            while ((read = await stream.ReadAsync(buffer, timeout.Token)) > 0)
+                received.Append(Encoding.ASCII.GetString(buffer, 0, read));
+        }
+        catch (IOException)
+        {
+            // connection reset after close counts as closed
+        }
+        return received.ToString();
+    }
 }

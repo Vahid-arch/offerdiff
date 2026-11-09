@@ -79,7 +79,7 @@ public class CliTests : IDisposable
         Assert.Equal(2, Run(Samples.Feed, "--delay", "2"));
 
         var text = errors.ToString();
-        Assert.Contains("error: --delay only works with --live", text);
+        Assert.Contains("error: --delay only works with --live or --render", text);
         Assert.Contains("--allow-private-hosts", text); // full usage listing all options
         Assert.Empty(output.ToString());
     }
@@ -101,6 +101,54 @@ public class CliTests : IDisposable
         }
         finally
         {
+            File.Delete(csv);
+        }
+    }
+
+    static string PrivateLinkFeed()
+    {
+        var csv = Path.Combine(Path.GetTempPath(), $"offerdiff-{Guid.NewGuid():N}.csv");
+        File.WriteAllText(csv, "id,title,link,price,sale_price,availability\nA1,Mug,http://127.0.0.1:9/products/a,12.99 USD,,in_stock\n");
+        return csv;
+    }
+
+    [Fact]
+    public void Render_run_starts_the_browser_and_keeps_the_private_address_guard()
+    {
+        // needs the Playwright Chromium installed (CI does it before the tests); still no network: the link is 127.0.0.1
+        var csv = PrivateLinkFeed();
+        try
+        {
+            Assert.Equal(0, Run(csv, "--render"));
+
+            Assert.Equal("checking 1/1: A1" + Environment.NewLine, errors.ToString());
+            Assert.Contains("A1  unknown   -             page could not be loaded: blocked private address 127.0.0.1", output.ToString());
+        }
+        finally
+        {
+            File.Delete(csv);
+        }
+    }
+
+    [Fact]
+    public void Render_without_chromium_prints_one_line_with_the_fix()
+    {
+        var csv = PrivateLinkFeed();
+        var empty = Directory.CreateTempSubdirectory("offerdiff-no-browsers");
+        var before = Environment.GetEnvironmentVariable("PLAYWRIGHT_BROWSERS_PATH");
+        Environment.SetEnvironmentVariable("PLAYWRIGHT_BROWSERS_PATH", empty.FullName);
+        try
+        {
+            Assert.Equal(2, Run(csv, "--render"));
+
+            Assert.Equal("error: Chromium is not installed. Fix: run \"offerdiff --install-browser\" once (or use --browser-channel chrome or msedge)"
+                + Environment.NewLine, errors.ToString());
+            Assert.Empty(output.ToString()); // stopped before any row, so no table at all
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable("PLAYWRIGHT_BROWSERS_PATH", before);
+            empty.Delete(recursive: true);
             File.Delete(csv);
         }
     }

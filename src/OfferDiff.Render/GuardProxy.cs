@@ -15,14 +15,15 @@ sealed class GuardProxy : IDisposable
 
     readonly TcpListener listener = new(IPAddress.Loopback, 0);
     readonly CancellationTokenSource stop = new();
-    readonly bool allowPrivateHosts;
     readonly Action<string> onBlocked;
+    readonly Func<DnsEndPoint, CancellationToken, ValueTask<Stream>> connect;
     BlockedAddressException? lastBlocked;
 
-    public GuardProxy(bool allowPrivateHosts, Action<string> onBlocked)
+    // connect is for tests only (to stand in for a public site); it defaults to NetworkGuard.ConnectAsync.
+    public GuardProxy(bool allowPrivateHosts, Action<string> onBlocked, Func<DnsEndPoint, CancellationToken, ValueTask<Stream>>? connect = null)
     {
-        this.allowPrivateHosts = allowPrivateHosts;
         this.onBlocked = onBlocked;
+        this.connect = connect ?? ((endpoint, token) => NetworkGuard.ConnectAsync(endpoint, allowPrivateHosts, token));
         listener.Start();
         _ = AcceptLoopAsync();
     }
@@ -78,7 +79,7 @@ sealed class GuardProxy : IDisposable
                 Stream site;
                 try
                 {
-                    site = await NetworkGuard.ConnectAsync(new DnsEndPoint(uri.DnsSafeHost, uri.Port), allowPrivateHosts, token);
+                    site = await connect(new DnsEndPoint(uri.DnsSafeHost, uri.Port), token);
                 }
                 catch (BlockedAddressException blocked)
                 {

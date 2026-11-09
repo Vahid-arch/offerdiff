@@ -1,0 +1,6 @@
+<Project>
+  <PropertyGroup>
+    <!-- One version for every project. The release workflow checks it, and HttpPageSource.UserAgent, against the tag. -->
+    <Version>0.3.0</Version>
+  </PropertyGroup>
+</Project>

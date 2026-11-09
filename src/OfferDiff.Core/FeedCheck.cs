@@ -25,14 +25,15 @@ public static class FeedCheck
 
     // getHtml loads one page by URL (FixturePageSource.GetHtml or HttpPageSource.GetHtml).
     // progress, if given, is called before each row with (row number, total rows, id).
-    public static CheckReport Run(string csvPath, Func<string, string> getHtml, Action<int, int, string>? progress = null)
+    // rendered: getHtml is BrowserPageSource.GetHtml, so hints are worded for browser mode.
+    public static CheckReport Run(string csvPath, Func<string, string> getHtml, Action<int, int, string>? progress = null, bool rendered = false)
     {
         var feed = FeedReader.Read(csvPath);
         var results = new List<ComparisonResult>();
         foreach (var item in feed.Items)
         {
             progress?.Invoke(results.Count + 1, feed.Items.Count, item.Id);
-            results.Add(Comparer.Compare(item, getHtml));
+            results.Add(Comparer.Compare(item, getHtml, rendered));
         }
         return new CheckReport(feed.Errors, results);
     }

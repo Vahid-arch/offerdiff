@@ -1,13 +1,36 @@
 ﻿using OfferDiff.Cli;
 using OfferDiff.Core;
+using OfferDiff.Render;
 
 var (options, error) = CliOptions.Parse(args);
 if (options == null) return Fail(error!);
+if (options.InstallBrowser) return InstallBrowser();
 if (!File.Exists(options.Csv)) return Fail($"feed file not found: {options.Csv}");
 
 Func<string, string> getHtml;
 Action<int, int, string>? progress = null;
-if (options.Live)
+using var browser = options.Render
+    ? BrowserPageSource.Create(options.AllowPrivateHosts, options.Delay, browserChannel: options.BrowserChannel)
+    : null;
+if (browser != null)
+{
+    // start once, before any row, so a missing browser is one clear line instead of an error on every row
+    try
+    {
+        browser.Start();
+    }
+    catch (BrowserMissingException missing)
+    {
+        return FailWithFix(CliOptions.FixFor(missing));
+    }
+    catch (IOException ex)
+    {
+        return FailWithFix($"the browser could not start: {ex.Message}");
+    }
+    getHtml = browser.GetHtml;
+    progress = (n, total, id) => Console.Error.WriteLine($"checking {n}/{total}: {id}");
+}
+else if (options.Live)
 {
     getHtml = HttpPageSource.Create(options.AllowPrivateHosts, options.Delay).GetHtml;
     // progress goes to stderr, so stdout stays a clean table for scripts
@@ -23,7 +46,7 @@ else
 CheckReport report;
 try
 {
-    report = FeedCheck.Run(options.Csv, getHtml, progress);
+    report = FeedCheck.Run(options.Csv, getHtml, progress, options.Render);
 }
 catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
 {
@@ -57,4 +80,27 @@ static int Fail(string message)
     Console.Error.WriteLine($"error: {message}");
     Console.Error.WriteLine(CliOptions.Usage);
     return 2;
+}
+
+// For problems with the computer, not the command: the fix is the whole message, so no usage text.
+static int FailWithFix(string message)
+{
+    Console.Error.WriteLine($"error: {message}");
+    return 2;
+}
+
+static int InstallBrowser()
+{
+    try
+    {
+        return BrowserPageSource.InstallChromium();
+    }
+    catch (BrowserMissingException missing)
+    {
+        return FailWithFix(CliOptions.FixFor(missing));
+    }
+    catch (IOException ex)
+    {
+        return FailWithFix($"installing Chromium failed: {ex.Message}");
+    }
 }
